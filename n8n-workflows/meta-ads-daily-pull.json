@@ -1,0 +1,312 @@
+{
+  "name": "HON Meta Ads Daily Pull",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "value": "0 9 * * 1-5"
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Daily Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        240,
+        300
+      ],
+      "notes": "Runs at 9 AM Monday-Friday"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Calculate current date and month-to-date range\nconst today = new Date();\nconst startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);\nconst yesterday = new Date(today);\nyesterday.setDate(today.getDate() - 1);\n\n// Format dates for API\nconst formatDate = (date) => date.toISOString().split('T')[0];\n\nreturn {\n  target_date: formatDate(today),\n  start_date: formatDate(startOfMonth),\n  end_date: formatDate(yesterday),\n  trigger: 'scheduled_sync',\n  metadata: {\n    triggered_by: 'n8n_schedule',\n    workflow_execution_id: $execution.id,\n    timestamp: today.toISOString()\n  }\n};"
+      },
+      "id": "date-calculator",
+      "name": "Calculate Date Range",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:8007/api/webhook/n8n-trigger",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={{ JSON.stringify({\n  trigger: $json.trigger,\n  target_date: $json.target_date,\n  metadata: $json.metadata\n}) }}",
+        "options": {}
+      },
+      "id": "trigger-sync",
+      "name": "Trigger Backend Sync",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "success-check",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "accepted",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-response",
+      "name": "Check Response",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "message": "✅ HON Meta Ads sync completed successfully",
+        "additionalFields": {
+          "blocks": [
+            {
+              "type": "section",
+              "text": {
+                "type": "mrkdwn",
+                "text": "*HON Meta Ads Daily Sync Report*\\n\\n✅ Data sync completed successfully\\n📅 Date: {{ $('Calculate Date Range').item.json.target_date }}\\n🎯 Trigger: {{ $('Calculate Date Range').item.json.trigger }}\\n\\nNext sync: Tomorrow at 9 AM"
+              }
+            }
+          ]
+        }
+      },
+      "id": "success-notification",
+      "name": "Success Notification",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.1,
+      "position": [
+        1120,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "message": "❌ HON Meta Ads sync failed",
+        "additionalFields": {
+          "blocks": [
+            {
+              "type": "section",
+              "text": {
+                "type": "mrkdwn",
+                "text": "*HON Meta Ads Daily Sync Error*\\n\\n❌ Data sync failed\\n📅 Date: {{ $('Calculate Date Range').item.json.target_date }}\\n⚠️ Error: {{ $json.error || 'Unknown error' }}\\n\\nPlease check the backend logs for details."
+              }
+            }
+          ]
+        }
+      },
+      "id": "error-notification",
+      "name": "Error Notification",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.1,
+      "position": [
+        1120,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Log the error details\nconsole.log('HON Meta Ads sync failed:', $input.all());\n\n// Return error details for notification\nreturn {\n  error: $json.error || 'Backend sync request failed',\n  timestamp: new Date().toISOString(),\n  execution_id: $execution.id\n};"
+      },
+      "id": "error-handler",
+      "name": "Error Handler",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:8007/api/reports/month-to-date",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "get-summary",
+      "name": "Get MTD Summary",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1340,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "message": "📊 HON Meta Ads MTD Summary",
+        "additionalFields": {
+          "blocks": [
+            {
+              "type": "section",
+              "text": {
+                "type": "mrkdwn",
+                "text": "*Month-to-Date Performance Summary*\\n\\n💰 Total Spend: ${{ $json.total_spend?.toFixed(2) || '0.00' }}\\n🛒 Total Purchases: {{ $json.total_purchases || 0 }}\\n💵 Total Revenue: ${{ $json.total_revenue?.toFixed(2) || '0.00' }}\\n📈 ROAS: {{ $json.avg_roas?.toFixed(2) || '0.00' }}\\n💲 CPA: ${{ $json.avg_cpa?.toFixed(2) || '0.00' }}\\n👆 Clicks: {{ $json.total_clicks || 0 }}\\n\\n📅 Period: {{ $json.date_range }}\\n📊 Campaigns: {{ $json.campaign_count || 0 }}"
+              }
+            }
+          ]
+        }
+      },
+      "id": "summary-notification",
+      "name": "Summary Notification",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.1,
+      "position": [
+        1560,
+        200
+      ]
+    }
+  ],
+  "connections": {
+    "Daily Schedule": {
+      "main": [
+        [
+          {
+            "node": "Calculate Date Range",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Date Range": {
+      "main": [
+        [
+          {
+            "node": "Trigger Backend Sync",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger Backend Sync": {
+      "main": [
+        [
+          {
+            "node": "Check Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Response": {
+      "main": [
+        [
+          {
+            "node": "Success Notification",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error Handler",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Success Notification": {
+      "main": [
+        [
+          {
+            "node": "Get MTD Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Handler": {
+      "main": [
+        [
+          {
+            "node": "Error Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get MTD Summary": {
+      "main": [
+        [
+          {
+            "node": "Summary Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z",
+      "id": "meta-ads",
+      "name": "Meta Ads"
+    },
+    {
+      "createdAt": "2024-01-01T00:00:00.000Z", 
+      "updatedAt": "2024-01-01T00:00:00.000Z",
+      "id": "reporting",
+      "name": "Reporting"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "versionId": "1"
+}

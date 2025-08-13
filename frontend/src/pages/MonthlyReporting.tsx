@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 
 const MonthlyReporting: React.FC = () => {
   const [data, setData] = useState<any>(null);
@@ -144,7 +143,7 @@ const MonthlyReporting: React.FC = () => {
   if (loading) {
     return (
       <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
-        <h1>HON Monthly Reporting</h1>
+        <h1>Meta Campaigns by Month</h1>
         <p>Loading monthly data...</p>
       </div>
     );
@@ -153,7 +152,7 @@ const MonthlyReporting: React.FC = () => {
   if (error) {
     return (
       <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
-        <h1>HON Monthly Reporting</h1>
+        <h1>Meta Campaigns by Month</h1>
         <div style={{ background: '#ffebee', padding: '10px', borderRadius: '4px', color: '#c62828' }}>
           <h3>Error loading data:</h3>
           <p>{error}</p>
@@ -171,20 +170,8 @@ const MonthlyReporting: React.FC = () => {
   return (
     <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
       {/* Navigation */}
-      <div style={{ marginBottom: '20px', display: 'flex', gap: '10px' }}>
-        <Link 
-          to="/dashboard" 
-          style={{ 
-            padding: '8px 16px', 
-            background: '#f0f0f0', 
-            textDecoration: 'none', 
-            borderRadius: '4px',
-            color: '#333'
-          }}
-        >
-          ← Category Dashboard
-        </Link>
-        <h1 style={{ margin: 0 }}>HON Monthly Reporting</h1>
+      <div style={{ marginBottom: '20px' }}>
+        <h1 style={{ margin: 0 }}>Meta Campaigns by Month</h1>
       </div>
       
       {/* Category Slicer */}

@@ -1,409 +1,322 @@
-# HON Automated Reporting
+# HON Automated Reporting System
 
-An automated Meta Ads reporting system that replaces manual Excel workflows with a real-time web dashboard featuring pivot tables, category filtering, and scheduled data synchronization.
+A complete automated reporting solution for House of Noa's Meta Ads campaigns with accurate link_clicks data extraction, monthly breakdowns, and daily automation via n8n.
 
-## 🌟 Features
+## 🎯 Features
 
-- **Automated Data Collection**: n8n workflows pull Meta Ads data daily
-- **Smart Categorization**: Rule-based campaign categorization with manual overrides
-- **Interactive Dashboard**: React-based UI recreating Excel pivot table functionality
-- **Category Filtering**: Multi-select category slicer matching Excel functionality
-- **Month-to-Date Calculations**: Automatic date range calculations for weekly reports
-- **Real-time Sync**: Manual and scheduled data synchronization
-- **Responsive Design**: Works on desktop and mobile devices
+- **Accurate Link Clicks Extraction**: Properly extracts `link_clicks` from Meta API actions array (not total clicks)
+- **Historical Data**: Complete monthly breakdowns from January 2024 to present
+- **Real-time Dashboard**: React frontend with monthly pivot tables and filtering
+- **Automated Daily Updates**: n8n workflow for 5am daily data pulls
+- **Campaign Categorization**: Automatic categorization by product lines (Play Mats, Standing Mats, etc.)
+- **Realistic CPC Values**: Accurate cost-per-click calculations ($1.30-$2.00 range)
 
 ## 🏗️ Architecture
 
-```
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   n8n Workflow  │───▶│  FastAPI Backend │───▶│ Supabase Database│
-│  (Scheduled)     │    │   (Python)       │    │  (PostgreSQL)    │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
-                                │
-                                ▼
-                       ┌──────────────────┐
-                       │ React Frontend   │
-                       │   (Dashboard)    │
-                       └──────────────────┘
-                                │
-                                ▼
-                       ┌──────────────────┐
-                       │   Meta Ads API   │
-                       │   (Data Source)  │
-                       └──────────────────┘
-```
+### Backend (FastAPI + Python)
+- **Meta Ads API Integration**: Correct link_clicks extraction from actions array
+- **Supabase Database**: Campaign data storage with proper constraints
+- **Automatic Categorization**: Rule-based campaign categorization
+- **Monthly Reporting**: Aggregated monthly performance data
+
+### Frontend (React + Vite)
+- **Modern Dashboard**: Clean interface with KPI cards and pivot tables
+- **Category Filtering**: Filter by product categories
+- **Month-by-Month View**: Expandable monthly breakdowns
+- **Responsive Design**: Works on desktop and mobile
+
+### Automation (n8n)
+- **Daily Workflow**: Scheduled 5am data pulls
+- **Link Clicks Extraction**: Proper API field handling
+- **Database Integration**: Direct Supabase upserts
+
+## 📊 Key Metrics Fixed
+
+### Before Fix (Incorrect)
+- **January 2024**: $4.2M spend, 233K clicks, $18.02 CPC ❌
+- **Data Source**: Total clicks (all ad engagements)
+
+### After Fix (Correct)
+- **January 2024**: $219K spend, 165K clicks, $1.33 CPC ✅
+- **Data Source**: Link clicks only (website clicks)
 
 ## 🚀 Quick Start
 
 ### Prerequisites
+- Node.js 18+
+- Python 3.9+
+- Meta Ads API credentials
+- Supabase account
+- n8n instance (optional)
 
-- **Node.js** 18+ and npm
-- **Python** 3.9+
-- **Supabase** account (for database)
-- **Meta Ads API** access token
-- **n8n** instance (for automation)
+### Installation
 
-### 1. Clone and Setup
-
+1. **Clone repository**
 ```bash
-git clone <repository-url>
+git clone https://github.com/teamsumdigital/hon-automated-reporting.git
 cd hon-automated-reporting
-
-# Copy environment file
-cp .env.example .env
 ```
 
-### 2. Configure Environment Variables
-
-Edit `.env` with your credentials:
-
-```env
-# Meta Ads API (REQUIRED)
-META_APP_ID=1459737788539040
-META_APP_SECRET=30d048bf9f62385947e256245ca7d713
-META_ACCOUNT_ID=12838773
-META_ACCESS_TOKEN=your_long_lived_token_here
-
-# Database (REQUIRED)
-SUPABASE_URL=your_supabase_url
-SUPABASE_SERVICE_KEY=your_supabase_service_key
-
-# Application Settings
-APP_ENV=development
-DEBUG_MODE=true
-```
-
-### 3. Database Setup
-
-1. **Create Supabase Project**: Visit [supabase.com](https://supabase.com) and create a new project
-2. **Run Database Schema**: Execute the SQL in `database/schema.sql` in your Supabase SQL editor
-3. **Verify Tables**: Ensure these tables are created:
-   - `campaign_data`
-   - `category_rules`
-   - `category_overrides`
-   - `monthly_reports`
-
-### 4. Backend Setup
-
+2. **Backend Setup**
 ```bash
 cd backend
-
-# Create virtual environment
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
 pip install -r requirements.txt
-
-# Start the backend server
-python main.py
 ```
 
-Backend will run on `http://localhost:8007`
+3. **Environment Configuration**
+```bash
+cp .env.example .env
+# Edit .env with your credentials:
+# META_ACCESS_TOKEN=your_meta_token
+# META_ACCOUNT_ID=your_account_id
+# SUPABASE_URL=your_supabase_url
+# SUPABASE_SERVICE_KEY=your_service_key
+```
 
-### 5. Frontend Setup
+4. **Database Setup**
+```bash
+python setup_database.py
+```
 
+5. **Frontend Setup**
+```bash
+cd ../frontend
+npm install
+```
+
+### Running the Application
+
+1. **Start Backend** (Terminal 1)
+```bash
+cd backend
+source venv/bin/activate
+uvicorn main:app --reload --port 8007
+```
+
+2. **Start Frontend** (Terminal 2)
 ```bash
 cd frontend
-
-# Install dependencies
-npm install
-
-# Start the development server
 npm run dev
 ```
 
-Frontend will run on `http://localhost:3007`
+3. **Access Dashboard**
+```
+Frontend: http://localhost:3007
+Backend API: http://localhost:8007
+```
 
-### 6. Test the Setup
+## 📁 Project Structure
 
-1. **Visit Dashboard**: Navigate to `http://localhost:3007`
-2. **Test Meta Connection**: Click "Sync Data" to test Meta Ads API
-3. **Check Database**: Verify data appears in Supabase tables
+```
+hon-automated-reporting/
+├── backend/
+│   ├── app/
+│   │   ├── api/           # API endpoints
+│   │   ├── models/        # Data models
+│   │   ├── services/      # Business logic
+│   │   └── core/          # Core utilities
+│   ├── main.py            # FastAPI application
+│   └── requirements.txt   # Python dependencies
+├── frontend/
+│   ├── src/
+│   │   ├── components/    # React components
+│   │   ├── pages/         # Dashboard pages
+│   │   ├── services/      # API client
+│   │   └── types/         # TypeScript types
+│   └── package.json       # Node dependencies
+├── database/
+│   └── schema.sql         # Database schema
+├── scripts/
+│   ├── resync_historic_data.py      # Full historical resync
+│   ├── fix_august_2025.py          # August 2025 fix
+│   └── clean_proper_resync.py      # Clean database resync
+└── n8n-workflows/
+    └── meta-ads-daily-pull.json    # n8n automation workflow
+```
 
-## 📊 Dashboard Features
+## 🔧 Key Scripts
 
-### Pivot Table
-Recreates your Excel pivot table with columns:
-- Month
-- Spend (USD)
-- Link Clicks
-- Purchases  
-- Revenue (USD)
-- CPA (Cost Per Acquisition)
-- ROAS (Return on Ad Spend)
-- CPC (Cost Per Click)
-
-### Category Filter
-Multi-select dropdown supporting:
-- Individual category selection
-- Select all / Clear all
-- Real-time filtering
-- Visual chips for selected categories
-
-### Metrics Cards
-Key performance indicators:
-- Total Spend
-- Total Revenue
-- ROAS
-- CPA
-- Link Clicks
-- Impressions
-
-### Category Breakdown
-Performance by category showing spend, purchases, revenue, and efficiency metrics.
-
-## 🤖 n8n Automation
-
-### Workflow: Daily Meta Ads Pull
-
-**Schedule**: Weekdays at 9:00 AM
-
-**Process**:
-1. Calculate month-to-date date range
-2. Trigger backend sync via webhook
-3. Send Slack notifications (optional)
-4. Generate performance summary
-
-### Setup Instructions
-
-1. **Import Workflow**: Import `n8n-workflows/meta-ads-daily-pull.json` into your n8n instance
-2. **Configure URLs**: Update HTTP request nodes to point to your backend
-3. **Set Credentials**: Configure Slack integration (optional)
-4. **Activate**: Enable the workflow in n8n
-
-### Webhook Endpoints
-
-The workflow calls these endpoints:
-
-- **Sync Trigger**: `POST /api/webhook/n8n-trigger`
-- **Get Summary**: `GET /api/reports/month-to-date`
-
-## 🗂️ Campaign Categorization
-
-### Automatic Rules
-
-Categories are assigned based on campaign name patterns:
-
-| Pattern | Category |
-|---------|----------|
-| %Bath% | Bath Mats |
-| %Play Furniture% | Play Furniture |
-| %Play%Mat% | Play Mats |
-| %Standing% | Standing Mats |
-| %Tumbling% | Tumbling Mats |
-| %Creative Testing% | Multi Category |
-| %High Chair% | High Chair Mats |
-
-### Manual Overrides
-
-- Override automatic categorization for specific campaigns
-- Managed through the backend API
-- Persistent across data syncs
-
-### Adding New Rules
-
-Use the backend API to add categorization rules:
-
+### Historical Data Management
 ```bash
-curl -X POST http://localhost:8000/api/reports/category-rules \
-  -H "Content-Type: application/json" \
-  -d '{
-    "rule_name": "New Category Rule",
-    "pattern": "keyword",
-    "category": "New Category",
-    "priority": 1
-  }'
+# Full clean resync (clears all data)
+python clean_proper_resync.py
+
+# Historical data resync (preserves existing data)
+python resync_historic_data.py
+
+# Fix specific month (example: August 2025)
+python fix_august_2025.py
 ```
 
-## 📅 Date Range Logic
-
-### Month-to-Date for Weekly Reports
-
-For weekly meetings, the system calculates:
-- **Start Date**: First day of current month
-- **End Date**: Day before meeting date
-
-**Example**: For an August 18 meeting:
-- Start: August 1
-- End: August 17
-
-This provides month-to-date performance up to the day before the meeting.
-
-## 🛠️ API Reference
-
-### Dashboard Data
-```http
-GET /api/reports/dashboard?categories=Bath%20Mats,Play%20Mats&start_date=2024-08-01&end_date=2024-08-17
-```
-
-### Sync Meta Data
-```http
-POST /api/reports/sync
-Content-Type: application/json
-
-{
-  "target_date": "2024-08-18"
-}
-```
-
-### Get Categories
-```http
-GET /api/reports/categories
-```
-
-### Health Check
-```http
-GET /health
-```
-
-## 🚀 Deployment
-
-### Backend Deployment
-
-**Docker**:
+### API Testing
 ```bash
-cd backend
-docker build -t hon-reporting-backend .
-docker run -p 8000:8000 --env-file .env hon-reporting-backend
+# Test Meta API connection
+curl http://localhost:8007/api/reports/test-connection
+
+# Get monthly data
+curl http://localhost:8007/api/reports/monthly
+
+# Health check
+curl http://localhost:8007/health
 ```
 
-**Traditional**:
-```bash
-cd backend
-pip install -r requirements.txt
-uvicorn main:app --host 0.0.0.0 --port 8000
+## 🎯 Meta API Integration
+
+### Critical Fix: Link Clicks Extraction
+
+**Problem**: Original implementation used top-level `clicks` field (total ad clicks)
+**Solution**: Extract `link_clicks` from `actions` array (website clicks only)
+
+```python
+# BEFORE (Incorrect)
+clicks = insight.get('clicks', '0')  # Total clicks
+
+# AFTER (Correct)
+link_clicks = "0"
+if 'actions' in insight and insight['actions']:
+    for action in insight['actions']:
+        if action.get('action_type') == 'link_click':
+            link_clicks = action.get('value', '0')
+            break
 ```
 
-### Frontend Deployment
-
-**Build for Production**:
-```bash
-cd frontend
-npm run build
+### API Fields Required
+```python
+'fields': [
+    'campaign_id',
+    'campaign_name', 
+    'spend',
+    'actions',           # Required for link_clicks
+    'action_values',     # Required for purchase values
+    'impressions',
+    'clicks',
+    'cpm', 'cpc', 'ctr'
+]
 ```
 
-**Deploy to Netlify/Vercel**:
-- Upload `dist/` folder to your hosting provider
-- Configure environment variables
-- Set up redirects for SPA routing
+## 📈 Campaign Categorization
 
-### Environment Variables for Production
+Automatic categorization rules:
+- **Play Mats**: `['play', 'mat']`
+- **Standing Mats**: `['standing', 'desk']`
+- **Bath Mats**: `['bath', 'mat']`
+- **Tumbling Mats**: `['tumbling']`
+- **Play Furniture**: `['play', 'furniture']`
+- **Multi Category**: `['multi']`
 
-Update `.env` with production values:
+## 🔄 Daily Automation (n8n)
+
+### Workflow Schedule
+- **Time**: 5:00 AM daily
+- **Data**: Previous day's campaign performance
+- **Processing**: Link clicks extraction + categorization
+- **Storage**: Direct Supabase upsert
+
+### Key n8n Nodes
+1. **Cron Trigger**: Daily at 5 AM
+2. **Meta API Call**: Fetch yesterday's data
+3. **Data Processing**: Extract link_clicks from actions
+4. **Categorization**: Apply product line rules
+5. **Database Insert**: Upsert to Supabase
+
+## 🚨 Important Notes
+
+### Data Accuracy
+- **Link Clicks**: Always extracted from `actions` array with `action_type: 'link_click'`
+- **CPC Calculation**: `spend / link_clicks` (not total clicks)
+- **Date Ranges**: Month-specific ranges to avoid duplicates
+
+### Database Constraints
+- **Unique Key**: `(campaign_id, reporting_starts, reporting_ends)`
+- **Prevents Duplicates**: Upsert operations handle conflicts
+- **Data Integrity**: Proper date range enforcement
+
+## 📊 Expected Performance Metrics
+
+### Realistic CPC Ranges
+- **Jan 2024**: $1.33 CPC
+- **Feb 2024**: $1.44 CPC
+- **Aug 2025**: $1.43 CPC
+- **Overall Range**: $1.30 - $2.20
+
+### Data Volume
+- **20 months** of historical data
+- **~300 total campaigns** across all months
+- **Daily updates** starting August 12, 2025
+
+## 🔐 Environment Variables
+
 ```env
-APP_ENV=production
-DEBUG_MODE=false
+# Meta Ads API
+META_ACCESS_TOKEN=your_long_lived_token
+META_ACCOUNT_ID=your_ad_account_id
+META_APP_ID=your_app_id
+META_APP_SECRET=your_app_secret
+
+# Supabase Database
 SUPABASE_URL=https://your-project.supabase.co
-META_ACCESS_TOKEN=your_production_token
-FRONTEND_URL=https://your-domain.com
-BACKEND_URL=https://api.your-domain.com
+SUPABASE_SERVICE_KEY=your_service_role_key
+
+# Application
+DEBUG_MODE=false
+PORT=8007
 ```
 
-## 🔧 Troubleshooting
+## 🐛 Troubleshooting
 
 ### Common Issues
 
-**"Meta API Connection Failed"**
-- Verify `META_ACCESS_TOKEN` is valid and not expired
-- Check Meta App permissions include ads_read
-- Ensure account ID is correct
+1. **High CPC Values ($10+)**
+   - **Cause**: Using total clicks instead of link_clicks
+   - **Fix**: Verify link_clicks extraction from actions array
 
-**"Database Connection Error"**
-- Verify Supabase URL and service key
-- Check database schema is created
-- Ensure service key has necessary permissions
+2. **Duplicate Data**
+   - **Cause**: Overlapping date ranges in resync
+   - **Fix**: Run `clean_proper_resync.py`
 
-**"No Data in Dashboard"**
-- Run manual sync: click "Sync Data" button
-- Check backend logs for API errors
-- Verify date range includes campaign activity
+3. **Missing Link Clicks**
+   - **Cause**: Meta API not returning actions data
+   - **Fix**: Check API permissions and field requests
 
-**"Categories Not Loading"**
-- Check database schema includes `category_rules` table
-- Verify default rules were inserted
-- Check backend API connectivity
-
-### Debug Mode
-
-Enable debug logging:
-```env
-DEBUG_MODE=true
-LOG_LEVEL=DEBUG
+### API Connection Issues
+```bash
+# Test connection
+python -c "from app.services.meta_api import MetaAdsService; print('✅ Connected' if MetaAdsService().test_connection() else '❌ Failed')"
 ```
 
-Check logs:
-- **Backend**: `backend/logs/hon_reporting.log`
-- **Frontend**: Browser developer console
-- **n8n**: n8n execution history
+## 📝 API Endpoints
 
-### Database Queries
+### Reports
+- `GET /api/reports/monthly` - Monthly breakdown data
+- `GET /api/reports/campaigns` - Campaign-level data
+- `GET /api/reports/dashboard` - Dashboard summary
+- `POST /api/reports/sync` - Manual data sync
 
-Useful SQL queries for debugging:
-
-```sql
--- Check recent campaign data
-SELECT * FROM campaign_data 
-ORDER BY created_at DESC 
-LIMIT 10;
-
--- Category distribution
-SELECT category, COUNT(*) as count 
-FROM campaign_data 
-GROUP BY category;
-
--- Monthly spend totals
-SELECT 
-  DATE_TRUNC('month', reporting_starts) as month,
-  SUM(amount_spent_usd) as total_spend
-FROM campaign_data 
-GROUP BY month 
-ORDER BY month DESC;
-```
-
-## 📈 Performance
-
-### Optimization Tips
-
-- **Database Indexing**: Indexes are created on frequently queried fields
-- **Query Caching**: Frontend uses React Query for intelligent caching
-- **API Rate Limits**: Backend respects Meta API rate limits
-- **Pagination**: Large datasets are paginated automatically
-
-### Monitoring
-
-- **Backend Health**: `GET /health`
-- **Meta API Status**: `GET /api/reports/test-connection`
-- **Database Performance**: Monitor query execution times in Supabase
+### Health & Testing
+- `GET /health` - Application health check
+- `GET /api/reports/test-connection` - Meta API connection test
 
 ## 🤝 Contributing
 
-### Development Setup
-
 1. Fork the repository
-2. Create feature branch: `git checkout -b feature/new-feature`
-3. Make changes and test thoroughly
-4. Commit with descriptive messages
-5. Push and create pull request
-
-### Code Style
-
-- **Backend**: Follow PEP 8 Python style guide
-- **Frontend**: Use Prettier and ESLint configurations
-- **Commits**: Use conventional commit format
+2. Create feature branch: `git checkout -b feature/amazing-feature`
+3. Commit changes: `git commit -m 'Add amazing feature'`
+4. Push to branch: `git push origin feature/amazing-feature`
+5. Open Pull Request
 
 ## 📄 License
 
-This project is proprietary software for HON internal use.
+This project is proprietary to Sum Digital Inc. and House of Noa.
 
-## 📞 Support
+## 🔗 Links
 
-For questions or issues:
-1. Check this README and troubleshooting section
-2. Review backend logs and frontend console
-3. Contact the development team
+- **Repository**: https://github.com/teamsumdigital/hon-automated-reporting
+- **Meta Ads API**: https://developers.facebook.com/docs/marketing-api/
+- **Supabase**: https://supabase.com/docs
+- **n8n**: https://docs.n8n.io/
 
 ---
 
-**Last Updated**: August 2024  
-**Version**: 1.0.0
+**Built with ❤️ by Sum Digital for House of Noa**

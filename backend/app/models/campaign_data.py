@@ -34,6 +34,7 @@ class MetaAdsInsight(BaseModel):
     purchase_roas: List[dict] = []
     impressions: str = "0"
     clicks: str = "0"
+    link_clicks: str = "0"  # Add link_clicks field
     cpm: str = "0"
     cpc: str = "0"
     ctr: str = "0"

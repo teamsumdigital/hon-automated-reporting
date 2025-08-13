@@ -1,0 +1,184 @@
+{
+  "name": "HON Daily Campaign Data Update",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "value": "0 9 * * *"
+            }
+          ]
+        }
+      },
+      "id": "1",
+      "name": "Daily at 9 AM",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Calculate yesterday's date\nconst yesterday = new Date();\nyesterday.setDate(yesterday.getDate() - 1);\n\n// Format dates for Meta API (YYYY-MM-DD)\nconst dateStr = yesterday.toISOString().split('T')[0];\n\nreturn {\n  app_id: '1459737788539040',\n  app_secret: '30d048bf9f62385947e256245ca7d713',\n  date_preset: 'yesterday',\n  time_range: {\n    since: dateStr,\n    until: dateStr\n  },\n  fields: [\n    'campaign_name',\n    'spend',\n    'clicks', \n    'actions',\n    'action_values',\n    'date_start',\n    'date_stop'\n  ].join(','),\n  access_token: 'EAAUvn7BZA4KABPOZAsmskE8AAymmU1RDEZCPTiNEmlqZBMrTiL6rCZAHYCb75ExZBtGRd8xDkvYg25zVukZBe3d0K01RResOx3SknXGRQei7VEOEf9ttJDdNhuOZBuKeggxkHfh0R2ZAqEYVMf3WzDbEyFGZBNEMMuYNDSirFYz2OauuXVNcbtOsugx9l9xwZDZD',\n  account_id: '12838773'\n};"
+      },
+      "id": "2",
+      "name": "Prepare Meta API Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://graph.facebook.com/v18.0/act_{{ $json.account_id }}/insights",
+        "options": {
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "access_token",
+                "value": "={{ $json.access_token }}"
+              },
+              {
+                "name": "level",
+                "value": "campaign"
+              },
+              {
+                "name": "date_preset",
+                "value": "={{ $json.date_preset }}"
+              },
+              {
+                "name": "fields",
+                "value": "={{ $json.fields }}"
+              },
+              {
+                "name": "limit",
+                "value": "1000"
+              }
+            ]
+          },
+          "headers": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "=Bearer {{ $json.access_token }}"
+              }
+            ]
+          }
+        }
+      },
+      "id": "3",
+      "name": "Fetch Meta Campaign Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process Meta API response and prepare for database insertion\nconst response = $input.all()[0].json;\nconst campaigns = response.data || [];\nconst processedCampaigns = [];\n\n// Category rules for auto-categorization\nconst categoryRules = {\n  'Bath Mats': ['bath', 'mat'],\n  'Play Furniture': ['play', 'furniture', 'kids', 'children'],\n  'Standing Mats': ['standing', 'desk'],\n  'Rugs': ['rug'],\n  'Kitchen Mats': ['kitchen'],\n  'Outdoor Mats': ['outdoor', 'door'],\n  'Creative Testing': ['creative', 'test'],\n  'Multi Category': ['multi']\n};\n\nfunction categorizeCompany(campaignName) {\n  const name = campaignName.toLowerCase();\n  \n  for (const [category, keywords] of Object.entries(categoryRules)) {\n    if (keywords.some(keyword => name.includes(keyword))) {\n      return category;\n    }\n  }\n  \n  return 'Uncategorized';\n}\n\nfunction extractPurchases(actions) {\n  if (!actions || !Array.isArray(actions)) return 0;\n  \n  const purchaseAction = actions.find(action => \n    action.action_type === 'purchase' || \n    action.action_type === 'offsite_conversion.fb_pixel_purchase'\n  );\n  \n  return purchaseAction ? parseFloat(purchaseAction.value) || 0 : 0;\n}\n\nfunction extractRevenue(actionValues) {\n  if (!actionValues || !Array.isArray(actionValues)) return 0;\n  \n  const revenueAction = actionValues.find(action => \n    action.action_type === 'purchase' || \n    action.action_type === 'offsite_conversion.fb_pixel_purchase'\n  );\n  \n  return revenueAction ? parseFloat(revenueAction.value) || 0 : 0;\n}\n\ncampaigns.forEach(campaign => {\n  const purchases = extractPurchases(campaign.actions);\n  const revenue = extractRevenue(campaign.action_values);\n  const spend = parseFloat(campaign.spend) || 0;\n  const clicks = parseInt(campaign.clicks) || 0;\n  \n  const processedCampaign = {\n    campaign_name: campaign.campaign_name,\n    amount_spent_usd: spend,\n    link_clicks: clicks,\n    website_purchases: purchases,\n    purchases_conversion_value: revenue,\n    date_start: campaign.date_start,\n    date_stop: campaign.date_stop,\n    category: categorizeCompany(campaign.campaign_name),\n    cpa: purchases > 0 ? spend / purchases : 0,\n    roas: spend > 0 ? revenue / spend : 0,\n    cpc: clicks > 0 ? spend / clicks : 0,\n    created_at: new Date().toISOString(),\n    updated_at: new Date().toISOString()\n  };\n  \n  processedCampaigns.push(processedCampaign);\n});\n\nreturn processedCampaigns;"
+      },
+      "id": "4",
+      "name": "Process & Categorize Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "table": "campaign_data",
+        "columns": "campaign_name,amount_spent_usd,link_clicks,website_purchases,purchases_conversion_value,date_start,date_stop,category,cpa,roas,cpc,created_at,updated_at",
+        "conflictColumns": "campaign_name,date_start",
+        "updateColumns": "amount_spent_usd,link_clicks,website_purchases,purchases_conversion_value,date_stop,category,cpa,roas,cpc,updated_at",
+        "credentials": "supabase",
+        "options": {}
+      },
+      "id": "5",
+      "name": "Insert to Database",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1120, 300],
+      "credentials": {
+        "supabase": {
+          "id": "supabase-hon",
+          "name": "Supabase HON"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = $input.all();\nconst insertedCount = results.length;\nconst yesterday = new Date();\nyesterday.setDate(yesterday.getDate() - 1);\n\nconsole.log(`Successfully processed ${insertedCount} campaigns for ${yesterday.toDateString()}`);\n\nreturn {\n  success: true,\n  date: yesterday.toISOString().split('T')[0],\n  campaigns_processed: insertedCount,\n  message: `Daily update completed: ${insertedCount} campaigns processed`\n};"
+      },
+      "id": "6",
+      "name": "Log Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 300]
+    }
+  ],
+  "connections": {
+    "Daily at 9 AM": {
+      "main": [
+        [
+          {
+            "node": "Prepare Meta API Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Meta API Request": {
+      "main": [
+        [
+          {
+            "node": "Fetch Meta Campaign Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Meta Campaign Data": {
+      "main": [
+        [
+          {
+            "node": "Process & Categorize Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process & Categorize Data": {
+      "main": [
+        [
+          {
+            "node": "Insert to Database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert to Database": {
+      "main": [
+        [
+          {
+            "node": "Log Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2024-01-13T00:00:00.000Z",
+  "versionId": "1"
+}

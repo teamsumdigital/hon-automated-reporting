@@ -259,15 +259,12 @@ const ModernDashboard: React.FC = () => {
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
+          <div>
             <img 
-              src="/house-of-noa-logo.svg" 
+              src="/house-of-noa-logo.png" 
               alt="House of Noa" 
-              className="h-12 w-auto"
+              className="h-6 w-auto"
             />
-            <div>
-              <p className="text-sm text-gray-600">Meta Campaigns by Month</p>
-            </div>
           </div>
           <button
             onClick={() => setFilterPanelOpen(!filterPanelOpen)}
@@ -317,7 +314,7 @@ const ModernDashboard: React.FC = () => {
           {/* Table */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">Monthly Performance</h2>
+              <h2 className="text-lg font-semibold text-gray-900">Meta Campaigns by Month</h2>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">

@@ -68,15 +68,17 @@ class MetaAdsService:
             
             results = []
             for insight in insights:
-                # Extract purchases from actions array
+                # Extract purchases and link_clicks from actions array
                 purchases = "0"
                 purchase_value = "0"
+                link_clicks = "0"
                 
                 if 'actions' in insight and insight['actions']:
                     for action in insight['actions']:
                         if action.get('action_type') == 'purchase':
                             purchases = action.get('value', '0')
-                            break
+                        elif action.get('action_type') == 'link_click':
+                            link_clicks = action.get('value', '0')
                 
                 if 'action_values' in insight and insight['action_values']:
                     for action_value in insight['action_values']:
@@ -97,6 +99,7 @@ class MetaAdsService:
                     purchase_roas=[{'value': str(roas_value)}] if roas_value > 0 else [],
                     impressions=insight.get('impressions', '0'),
                     clicks=insight.get('clicks', '0'),
+                    link_clicks=link_clicks,  # Add extracted link_clicks
                     cpm=insight.get('cpm', '0'),
                     cpc=insight.get('cpc', '0'),
                     ctr=insight.get('ctr', '0'),
@@ -127,7 +130,9 @@ class MetaAdsService:
                 spend = Decimal(insight.spend).quantize(Decimal('0.01')) if insight.spend else Decimal('0')
                 purchases = int(float(insight.purchases)) if insight.purchases else 0
                 impressions = int(insight.impressions) if insight.impressions else 0
-                clicks = int(insight.clicks) if insight.clicks else 0
+                
+                # Get link clicks from the insight object
+                link_clicks = int(insight.link_clicks) if insight.link_clicks else 0
                 
                 # Calculate ROAS from purchase_roas
                 roas = Decimal('0')
@@ -142,8 +147,8 @@ class MetaAdsService:
                 # Calculate CPA
                 cpa = (spend / purchases).quantize(Decimal('0.01')) if purchases > 0 else Decimal('0')
                 
-                # Calculate CPC
-                cpc = (spend / clicks).quantize(Decimal('0.0001')) if clicks > 0 else Decimal('0')
+                # Calculate CPC using link clicks
+                cpc = (spend / link_clicks).quantize(Decimal('0.0001')) if link_clicks > 0 else Decimal('0')
                 
                 campaign_data = CampaignData(
                     campaign_id=insight.campaign_id,
@@ -154,7 +159,7 @@ class MetaAdsService:
                     website_purchases=purchases,
                     purchases_conversion_value=revenue,
                     impressions=impressions,
-                    link_clicks=clicks,
+                    link_clicks=link_clicks,
                     cpa=cpa,
                     roas=roas,
                     cpc=cpc

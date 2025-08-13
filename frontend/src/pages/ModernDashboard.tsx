@@ -259,9 +259,15 @@ const ModernDashboard: React.FC = () => {
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">House of Noa</h1>
-            <p className="text-sm text-gray-600">Meta Campaigns by Month</p>
+          <div className="flex items-center space-x-4">
+            <img 
+              src="/house-of-noa-logo.svg" 
+              alt="House of Noa" 
+              className="h-12 w-auto"
+            />
+            <div>
+              <p className="text-sm text-gray-600">Meta Campaigns by Month</p>
+            </div>
           </div>
           <button
             onClick={() => setFilterPanelOpen(!filterPanelOpen)}
@@ -317,13 +323,13 @@ const ModernDashboard: React.FC = () => {
               <table className="w-full">
                 <thead className="bg-gray-50 sticky top-0">
                   <tr>
-                    {['Month', 'Spend', 'Link Clicks', 'Purchases', 'Revenue', 'CPA', 'ROAS', 'CPC'].map((header) => (
+                    {['Month', 'Spend', 'Link Clicks', 'Purchases', 'Revenue', 'CPA', 'ROAS', 'CPC'].map((header, index) => (
                       <th
                         key={header}
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                        className={`px-6 py-3 ${index === 0 ? 'text-left' : 'text-right'} text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors`}
                         onClick={() => handleSort(header.toLowerCase())}
                       >
-                        <div className="flex items-center space-x-1">
+                        <div className={`flex items-center space-x-1 ${index === 0 ? 'justify-start' : 'justify-end'}`}>
                           <span>{header}</span>
                           {sortColumn === header.toLowerCase() && (
                             sortDirection === 'asc' ? 
@@ -368,7 +374,7 @@ const ModernDashboard: React.FC = () => {
                           {sortedYears.reduce((sum, year) => sum + (yearsInMonth[year].link_clicks || 0), 0).toLocaleString()}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
-                          {sortedYears.reduce((sum, year) => sum + (yearsInMonth[year].website_purchases || 0), 0)}
+                          {sortedYears.reduce((sum, year) => sum + (yearsInMonth[year].website_purchases || 0), 0).toLocaleString()}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
                           ${Math.round(sortedYears.reduce((sum, year) => sum + (yearsInMonth[year].purchases_conversion_value || 0), 0)).toLocaleString()}
@@ -413,7 +419,7 @@ const ModernDashboard: React.FC = () => {
                               {(yearData.link_clicks || 0).toLocaleString()}
                             </td>
                             <td className="px-6 py-3 whitespace-nowrap text-right text-sm text-gray-900">
-                              {yearData.website_purchases || 0}
+                              {(yearData.website_purchases || 0).toLocaleString()}
                             </td>
                             <td className="px-6 py-3 whitespace-nowrap text-right text-sm text-gray-900">
                               ${Math.round(yearData.purchases_conversion_value || 0).toLocaleString()}

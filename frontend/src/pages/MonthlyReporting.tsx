@@ -143,7 +143,7 @@ const MonthlyReporting: React.FC = () => {
   if (loading) {
     return (
       <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
-        <h1>Meta Campaigns by Month</h1>
+        <h1>House of Noa - Meta Campaigns by Month</h1>
         <p>Loading monthly data...</p>
       </div>
     );
@@ -152,7 +152,7 @@ const MonthlyReporting: React.FC = () => {
   if (error) {
     return (
       <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
-        <h1>Meta Campaigns by Month</h1>
+        <h1>House of Noa - Meta Campaigns by Month</h1>
         <div style={{ background: '#ffebee', padding: '10px', borderRadius: '4px', color: '#c62828' }}>
           <h3>Error loading data:</h3>
           <p>{error}</p>
@@ -171,7 +171,7 @@ const MonthlyReporting: React.FC = () => {
     <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
       {/* Navigation */}
       <div style={{ marginBottom: '20px' }}>
-        <h1 style={{ margin: 0 }}>Meta Campaigns by Month</h1>
+        <h1 style={{ margin: 0 }}>House of Noa - Meta Campaigns by Month</h1>
       </div>
       
       {/* Category Slicer */}

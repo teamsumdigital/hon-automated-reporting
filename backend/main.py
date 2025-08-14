@@ -9,6 +9,8 @@ load_dotenv()
 
 # Import routers
 from app.api.reports import router as reports_router
+from app.api.google_reports import router as google_reports_router
+from app.api.tiktok_reports import router as tiktok_reports_router
 from app.api.webhook import router as webhook_router
 
 # Configure logging
@@ -16,8 +18,8 @@ logger.add("logs/hon_reporting.log", rotation="1 day", retention="30 days", leve
 
 app = FastAPI(
     title="HON Automated Reporting API",
-    description="Meta Ads reporting automation with categorization and pivot tables",
-    version="1.0.0"
+    description="Meta Ads, Google Ads, and TikTok Ads reporting automation with categorization and pivot tables",
+    version="1.2.0"
 )
 
 # CORS middleware
@@ -31,18 +33,36 @@ app.add_middleware(
 
 # Include routers
 app.include_router(reports_router)
+app.include_router(google_reports_router)
+app.include_router(tiktok_reports_router)
 app.include_router(webhook_router)
 
 @app.get("/")
 async def root():
     return {
         "message": "HON Automated Reporting API",
-        "version": "1.0.0",
+        "version": "1.2.0",
         "status": "active",
+        "platforms": ["Meta Ads", "Google Ads", "TikTok Ads"],
         "endpoints": {
-            "dashboard": "/api/reports/dashboard",
-            "pivot_table": "/api/reports/pivot-table",
-            "sync": "/api/reports/sync",
+            "meta_ads": {
+                "dashboard": "/api/reports/dashboard",
+                "monthly": "/api/reports/monthly", 
+                "sync": "/api/reports/sync",
+                "test": "/api/reports/test-connection"
+            },
+            "google_ads": {
+                "dashboard": "/api/google-reports/dashboard",
+                "monthly": "/api/google-reports/monthly",
+                "sync": "/api/google-reports/sync", 
+                "test": "/api/google-reports/test-connection"
+            },
+            "tiktok_ads": {
+                "dashboard": "/api/tiktok-reports/dashboard",
+                "monthly": "/api/tiktok-reports/monthly",
+                "sync": "/api/tiktok-reports/sync",
+                "test": "/api/tiktok-reports/test-connection"
+            },
             "webhook": "/api/webhook/n8n-trigger"
         }
     }

@@ -5,6 +5,7 @@ pydantic-settings==2.1.0
 supabase==2.3.0
 python-dotenv==1.0.0
 facebook-business==19.0.3
+google-ads==24.1.0
 pandas>=2.2.0
 python-multipart==0.0.6
 httpx>=0.24.0,<0.25.0

@@ -1,13 +1,19 @@
 # HON Automated Reporting System
 
-A complete automated reporting solution for House of Noa's Meta Ads campaigns with accurate link_clicks data extraction, monthly breakdowns, and daily automation via n8n.
+A complete automated reporting solution for House of Noa's Meta Ads and Google Ads campaigns with accurate link_clicks data extraction, monthly breakdowns, Excel-style tab navigation, and daily automation via n8n.
 
 ## 🎯 Features
 
-- **Accurate Link Clicks Extraction**: Properly extracts `link_clicks` from Meta API actions array (not total clicks)
-- **Historical Data**: Complete monthly breakdowns from January 2024 to present
-- **Real-time Dashboard**: React frontend with monthly pivot tables and filtering
-- **Automated Daily Updates**: n8n workflow for 5am daily data pulls
+### Multi-Platform Support
+- **Meta Ads Integration**: Accurate `link_clicks` extraction from Meta API actions array (not total clicks)
+- **Google Ads Integration**: Native Google Ads API integration with proper conversion tracking
+- **Excel-Style Tabs**: Switch between Meta Ads and Google Ads dashboards with bottom tab navigation
+- **Unified Categorization**: Same product categorization system works across both platforms
+
+### Data & Analytics  
+- **Historical Data**: Complete monthly breakdowns from January 2024 to present for both platforms
+- **Real-time Dashboards**: React frontend with monthly pivot tables and filtering for each platform
+- **Automated Daily Updates**: n8n workflows for 5am daily data pulls from both APIs
 - **Campaign Categorization**: Automatic categorization by product lines (Play Mats, Standing Mats, etc.)
 - **Realistic CPC Values**: Accurate cost-per-click calculations ($1.30-$2.00 range)
 
@@ -255,6 +261,14 @@ META_ACCOUNT_ID=your_ad_account_id
 META_APP_ID=your_app_id
 META_APP_SECRET=your_app_secret
 
+# Google Ads API
+GOOGLE_ADS_DEVELOPER_TOKEN=your_developer_token
+GOOGLE_ADS_CUSTOMER_ID=1234567890
+GOOGLE_OAUTH_CLIENT_ID=your_oauth_client_id.googleusercontent.com
+GOOGLE_OAUTH_CLIENT_SECRET=your_oauth_client_secret
+GOOGLE_OAUTH_REFRESH_TOKEN=your_refresh_token
+GOOGLE_ADS_LOGIN_CUSTOMER_ID=your_manager_account_id  # Optional
+
 # Supabase Database
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_KEY=your_service_role_key
@@ -262,6 +276,86 @@ SUPABASE_SERVICE_KEY=your_service_role_key
 # Application
 DEBUG_MODE=false
 PORT=8007
+```
+
+## 🚀 Google Ads API Setup
+
+### Prerequisites
+1. **Google Cloud Console Project**
+   - Create or select a project at [Google Cloud Console](https://console.cloud.google.com/)
+   - Enable the Google Ads API
+   - Set up OAuth2 credentials (Web application type)
+
+2. **Google Ads Developer Access**
+   - Apply for Google Ads API access at [Google Ads API Center](https://ads.google.com/home/tools/manager-accounts/)
+   - This requires business verification and may take several days
+   - You'll need a Google Ads Manager account
+
+### Step-by-Step Setup
+
+#### 1. Create OAuth2 Credentials
+```bash
+# In Google Cloud Console:
+# 1. Go to "Credentials" → "Create Credentials" → "OAuth 2.0 Client ID"
+# 2. Application type: "Web application"
+# 3. Add authorized redirect URI: http://localhost:8080/oauth2callback
+# 4. Download the JSON file
+```
+
+#### 2. Get Refresh Token
+```bash
+# Use the Google Ads API authentication tool:
+# https://developers.google.com/google-ads/api/docs/first-call/overview
+
+# Or run this Python script:
+python -c "
+from google.auth.transport.requests import Request
+from google_auth_oauthlib.flow import InstalledAppFlow
+
+flow = InstalledAppFlow.from_client_secrets_file(
+    'path/to/client_secrets.json',
+    scopes=['https://www.googleapis.com/auth/adwords']
+)
+creds = flow.run_local_server(port=8080)
+print('Refresh Token:', creds.refresh_token)
+"
+```
+
+#### 3. Configure Environment Variables
+```env
+# Copy from Google Cloud Console OAuth2 credentials
+GOOGLE_OAUTH_CLIENT_ID=your_client_id.apps.googleusercontent.com
+GOOGLE_OAUTH_CLIENT_SECRET=your_client_secret
+
+# From Step 2 authentication
+GOOGLE_OAUTH_REFRESH_TOKEN=your_refresh_token
+
+# From Google Ads account (10-digit number without dashes)
+GOOGLE_ADS_CUSTOMER_ID=1234567890
+
+# Developer token from Google Ads Manager account
+GOOGLE_ADS_DEVELOPER_TOKEN=your_developer_token
+
+# Optional: Manager account ID for manager accounts
+GOOGLE_ADS_LOGIN_CUSTOMER_ID=your_manager_account_id
+```
+
+#### 4. Run Database Migration
+```bash
+# Create Google Ads tables in Supabase
+python run_google_ads_migration.py
+
+# Or run the SQL directly in Supabase dashboard
+# File: database/migrations/add_google_campaign_data.sql
+```
+
+#### 5. Test Connection & Sync Data
+```bash
+# Test Google Ads API connection
+curl http://localhost:8007/api/google-reports/test-connection
+
+# Sync historical data (this may take several minutes)
+python google_historical_resync.py
 ```
 
 ## 🐛 Troubleshooting

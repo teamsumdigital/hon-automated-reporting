@@ -90,6 +90,7 @@ const GoogleDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedCampaignTypes, setSelectedCampaignTypes] = useState<string[]>([]);
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set());
   const [filterPanelOpen, setFilterPanelOpen] = useState(true);
   const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
@@ -101,9 +102,7 @@ const GoogleDashboard: React.FC = () => {
       setError(null);
       
       const params: any = {};
-      if (selectedCategories.length > 0) {
-        params.categories = selectedCategories.join(',');
-      }
+      // Categories filtering is now client-side only for fast response
       
       const data = await googleAdsApi.getDashboardData(params);
       setDashboardData(data);
@@ -117,13 +116,22 @@ const GoogleDashboard: React.FC = () => {
 
   useEffect(() => {
     fetchDashboardData();
-  }, [selectedCategories]);
+  }, []); // Remove selectedCategories dependency - use client-side filtering instead
+
 
   const handleCategoryToggle = (category: string) => {
     setSelectedCategories(prev => 
       prev.includes(category)
         ? prev.filter(c => c !== category)
         : [...prev, category]
+    );
+  };
+
+  const handleCampaignTypeToggle = (campaignType: string) => {
+    setSelectedCampaignTypes(prev => 
+      prev.includes(campaignType)
+        ? prev.filter(ct => ct !== campaignType)
+        : [...prev, campaignType]
     );
   };
 
@@ -137,6 +145,7 @@ const GoogleDashboard: React.FC = () => {
 
   const clearAllFilters = () => {
     setSelectedCategories([]);
+    setSelectedCampaignTypes([]);
     setSelectedMonths([]);
   };
 
@@ -227,18 +236,71 @@ const GoogleDashboard: React.FC = () => {
     );
   }
 
-  // Filter data based on selected months (client-side filtering)
-  const filteredPivotData = selectedMonths.length > 0 
-    ? dashboardData.pivot_data.filter(item => selectedMonths.includes(item.month))
-    : dashboardData.pivot_data;
+  // Client-side filtering for fast performance (like Meta Ads)
+  const allCampaigns = dashboardData?.campaigns || [];
+  
+  // Apply category filtering first
+  let filteredCampaigns = selectedCategories.length > 0
+    ? allCampaigns.filter(campaign => selectedCategories.includes(campaign.category))
+    : allCampaigns;
+  
+  // Apply campaign type filtering
+  filteredCampaigns = selectedCampaignTypes.length > 0
+    ? filteredCampaigns.filter(campaign => selectedCampaignTypes.includes(campaign.campaign_type))
+    : filteredCampaigns;
+    
+  // Calculate filtered pivot data from campaigns when any filters are selected
+  let filteredPivotData = dashboardData.pivot_data;
+  
+  if (selectedCategories.length > 0 || selectedCampaignTypes.length > 0) {
+    // Recalculate pivot data from filtered campaigns
+    const monthlyData: { [month: string]: any } = {};
+    
+    filteredCampaigns.forEach(campaign => {
+      const monthKey = campaign.reporting_starts.substring(0, 7); // YYYY-MM format
+      
+      if (!monthlyData[monthKey]) {
+        monthlyData[monthKey] = {
+          month: monthKey,
+          spend: 0,
+          link_clicks: 0,
+          purchases: 0,
+          revenue: 0
+        };
+      }
+      
+      monthlyData[monthKey].spend += campaign.amount_spent_usd;
+      monthlyData[monthKey].link_clicks += campaign.link_clicks;
+      monthlyData[monthKey].purchases += campaign.website_purchases;
+      monthlyData[monthKey].revenue += campaign.purchases_conversion_value;
+    });
+    
+    // Convert to pivot data format with calculated metrics
+    filteredPivotData = Object.values(monthlyData).map((data: any) => ({
+      month: data.month,
+      spend: data.spend,
+      link_clicks: data.link_clicks,
+      purchases: data.purchases,
+      revenue: data.revenue,
+      cpa: data.purchases > 0 ? data.spend / data.purchases : 0,
+      roas: data.spend > 0 ? data.revenue / data.spend : 0,
+      cpc: data.link_clicks > 0 ? data.spend / data.link_clicks : 0
+    }));
+  }
+  
+  // Apply month filtering
+  if (selectedMonths.length > 0) {
+    filteredPivotData = filteredPivotData.filter(item => selectedMonths.includes(item.month));
+  }
 
   // Group the filtered data by month/year
   const groupedData = groupByMonthThenYear(filteredPivotData);
 
-  // Calculate filtered summary if months are selected
-  const displaySummary = selectedMonths.length > 0 
+  // Calculate filtered summary if any filters are selected
+  const displaySummary = (selectedCategories.length > 0 || selectedCampaignTypes.length > 0 || selectedMonths.length > 0)
     ? {
         ...dashboardData.summary,
+        period: (selectedCategories.length > 0 || selectedCampaignTypes.length > 0) ? "Filtered" : dashboardData.summary.period,
         total_spend: filteredPivotData.reduce((sum, item) => sum + parseFloat(item.spend.toString()), 0),
         total_clicks: filteredPivotData.reduce((sum, item) => sum + item.link_clicks, 0),
         total_purchases: filteredPivotData.reduce((sum, item) => sum + item.purchases, 0),
@@ -246,6 +308,7 @@ const GoogleDashboard: React.FC = () => {
         avg_cpa: filteredPivotData.length > 0 ? filteredPivotData.reduce((sum, item) => sum + parseFloat(item.cpa.toString()), 0) / filteredPivotData.length : 0,
         avg_roas: filteredPivotData.length > 0 ? filteredPivotData.reduce((sum, item) => sum + parseFloat(item.roas.toString()), 0) / filteredPivotData.length : 0,
         avg_cpc: filteredPivotData.length > 0 ? filteredPivotData.reduce((sum, item) => sum + parseFloat(item.cpc.toString()), 0) / filteredPivotData.length : 0,
+        campaigns_count: (selectedCategories.length > 0 || selectedCampaignTypes.length > 0) ? filteredCampaigns.length : dashboardData.summary.campaigns_count
       }
     : dashboardData.summary;
 
@@ -328,18 +391,22 @@ const GoogleDashboard: React.FC = () => {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map(monthName => {
-                    const yearsInMonth = groupedData[monthName];
-                    if (!yearsInMonth || Object.keys(yearsInMonth).length === 0) return null;
+                    const yearsInMonth = groupedData[monthName] || {};
                     
-                    const sortedYears = Object.keys(yearsInMonth).sort((a, b) => parseInt(b) - parseInt(a)); // Descending years
+                    // If months are filtered and this month has no data, don't show it
+                    if (selectedMonths.length > 0 && Object.keys(yearsInMonth).length === 0) {
+                      return null;
+                    }
+                    
+                    const sortedYears = Object.keys(yearsInMonth).sort((a, b) => parseInt(a) - parseInt(b)); // Ascending years (2024 before 2025)
                     const isExpanded = expandedTableMonths.includes(monthName);
                     const rows: JSX.Element[] = [];
                     
                     // Month header row (aggregated data)
-                    const totalSpend = sortedYears.reduce((sum, year) => sum + parseFloat(yearsInMonth[year].spend), 0);
-                    const totalClicks = sortedYears.reduce((sum, year) => sum + yearsInMonth[year].link_clicks, 0);
-                    const totalPurchases = sortedYears.reduce((sum, year) => sum + yearsInMonth[year].purchases, 0);
-                    const totalRevenue = sortedYears.reduce((sum, year) => sum + parseFloat(yearsInMonth[year].revenue), 0);
+                    const totalSpend = sortedYears.length > 0 ? sortedYears.reduce((sum, year) => sum + parseFloat(yearsInMonth[year].spend), 0) : 0;
+                    const totalClicks = sortedYears.length > 0 ? sortedYears.reduce((sum, year) => sum + yearsInMonth[year].link_clicks, 0) : 0;
+                    const totalPurchases = sortedYears.length > 0 ? sortedYears.reduce((sum, year) => sum + yearsInMonth[year].purchases, 0) : 0;
+                    const totalRevenue = sortedYears.length > 0 ? sortedYears.reduce((sum, year) => sum + parseFloat(yearsInMonth[year].revenue), 0) : 0;
                     const avgCPA = totalPurchases > 0 ? totalSpend / totalPurchases : 0;
                     const avgROAS = totalSpend > 0 ? totalRevenue / totalSpend : 0;
                     const avgCPC = totalClicks > 0 ? totalSpend / totalClicks : 0;
@@ -448,7 +515,7 @@ const GoogleDashboard: React.FC = () => {
             <div className="flex-shrink-0 p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-gray-900">Filters</h3>
-                {(selectedCategories.length > 0 || selectedMonths.length > 0) && (
+                {(selectedCategories.length > 0 || selectedCampaignTypes.length > 0 || selectedMonths.length > 0) && (
                   <button
                     onClick={clearAllFilters}
                     className="text-sm text-blue-600 hover:text-blue-800 font-medium"
@@ -460,10 +527,10 @@ const GoogleDashboard: React.FC = () => {
             </div>
 
             {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto filter-sidebar-scroll">
+            <div className="flex-1 overflow-y-auto filter-scroll">
               <div className="p-6 space-y-8">
                 {/* Category Filters */}
-                {dashboardData.categories && dashboardData.categories.length > 0 && (
+                {dashboardData?.categories && dashboardData.categories.length > 0 && (
                   <div>
                     <h4 className="text-sm font-medium text-gray-700 mb-3 sticky top-0 bg-white py-2 -my-2 z-10">Categories</h4>
                     <div className="space-y-2">
@@ -484,6 +551,28 @@ const GoogleDashboard: React.FC = () => {
                   </div>
                 )}
 
+                {/* Campaign Type Filters */}
+                {dashboardData?.campaign_types && dashboardData.campaign_types.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700 mb-3 sticky top-0 bg-white py-2 -my-2 z-10">Campaign Types</h4>
+                    <div className="space-y-2">
+                      {dashboardData.campaign_types.filter((campaignType: string) => campaignType !== 'Unclassified').map((campaignType: string) => (
+                        <button
+                          key={campaignType}
+                          onClick={() => handleCampaignTypeToggle(campaignType)}
+                          className={`w-full text-left px-3 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                            selectedCampaignTypes.includes(campaignType)
+                              ? 'bg-blue-600 text-white shadow-md'
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
+                        >
+                          {campaignType}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Month Filters */}
                 {dashboardData.pivot_data && dashboardData.pivot_data.length > 0 && (
                   <div>
@@ -493,7 +582,7 @@ const GoogleDashboard: React.FC = () => {
                         <span className="text-xs text-gray-400 italic">Scroll to see all</span>
                       )}
                     </div>
-                    <div className="space-y-2 max-h-[28rem] overflow-y-auto">
+                    <div className="space-y-2 max-h-[16rem] overflow-y-auto filter-scroll">
                       {dashboardData.pivot_data
                         .slice()
                         .sort((a, b) => b.month.localeCompare(a.month))

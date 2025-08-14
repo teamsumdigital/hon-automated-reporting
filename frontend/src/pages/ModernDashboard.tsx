@@ -343,7 +343,7 @@ const ModernDashboard: React.FC = () => {
                     const yearsInMonth = groupedData[monthName];
                     if (!yearsInMonth || Object.keys(yearsInMonth).length === 0) return null;
                     
-                    const sortedYears = Object.keys(yearsInMonth).sort((a, b) => parseInt(b) - parseInt(a));
+                    const sortedYears = Object.keys(yearsInMonth).sort((a, b) => parseInt(a) - parseInt(b));
                     const isExpanded = expandedMonths.includes(monthName);
                     const rows: JSX.Element[] = [];
                     
@@ -447,56 +447,77 @@ const ModernDashboard: React.FC = () => {
         <div className={`fixed right-0 top-0 h-full w-80 bg-white border-l border-gray-200 shadow-lg transform transition-transform duration-300 z-40 ${
           filterPanelOpen ? 'translate-x-0' : 'translate-x-full'
         }`}>
-          <div className="p-6 h-full overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold text-gray-900">Filters</h3>
-              {(selectedCategories.length > 0 || selectedMonths.length > 0) && (
-                <button
-                  onClick={clearAllFilters}
-                  className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-                >
-                  Clear All
-                </button>
-              )}
-            </div>
-
-            {/* Category Filters */}
-            <div className="mb-8">
-              <h4 className="text-sm font-medium text-gray-700 mb-3">Categories</h4>
-              <div className="space-y-2">
-                {data?.available_categories?.map((category: string) => (
+          <div className="flex flex-col h-full">
+            {/* Fixed Header */}
+            <div className="flex-shrink-0 p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900">Filters</h3>
+                {(selectedCategories.length > 0 || selectedMonths.length > 0) && (
                   <button
-                    key={category}
-                    onClick={() => toggleCategory(category)}
-                    className={`w-full text-left px-3 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                      selectedCategories.includes(category)
-                        ? 'bg-blue-600 text-white shadow-md'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
+                    onClick={clearAllFilters}
+                    className="text-sm text-blue-600 hover:text-blue-800 font-medium"
                   >
-                    {category}
+                    Clear All
                   </button>
-                ))}
+                )}
               </div>
             </div>
 
-            {/* Month Filters */}
-            <div>
-              <h4 className="text-sm font-medium text-gray-700 mb-3">Months</h4>
-              <div className="space-y-2">
-                {data?.monthly_breakdown?.map((month: any) => (
-                  <button
-                    key={month.month}
-                    onClick={() => toggleMonth(month.month)}
-                    className={`w-full text-left px-3 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                      selectedMonths.includes(month.month)
-                        ? 'bg-green-600 text-white shadow-md'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    {formatMonthDisplay(month.month)}
-                  </button>
-                ))}
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto filter-sidebar-scroll">
+              <div className="p-6 space-y-8">
+                {/* Category Filters */}
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-3 sticky top-0 bg-white py-2 -my-2 z-10">Categories</h4>
+                  <div className="space-y-2">
+                    {data?.available_categories?.filter((category: string) => category !== 'Uncategorized').map((category: string) => (
+                      <button
+                        key={category}
+                        onClick={() => toggleCategory(category)}
+                        className={`w-full text-left px-3 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                          selectedCategories.includes(category)
+                            ? 'bg-blue-600 text-white shadow-md'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        {category}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Month Filters */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-sm font-medium text-gray-700 sticky top-0 bg-white py-2 -my-2 z-10">Months</h4>
+                    {data?.monthly_breakdown && data.monthly_breakdown.length > 8 && (
+                      <span className="text-xs text-gray-400 italic">Scroll to see all</span>
+                    )}
+                  </div>
+                  <div className="space-y-2 month-filter-container overflow-y-auto filter-sidebar-scroll relative">
+                    {data?.monthly_breakdown?.map((month: any) => (
+                      <button
+                        key={month.month}
+                        onClick={() => toggleMonth(month.month)}
+                        className={`w-full text-left px-3 py-2 rounded-full text-sm font-medium transition-all duration-200 flex items-center justify-between ${
+                          selectedMonths.includes(month.month)
+                            ? 'bg-green-600 text-white shadow-md'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        <span>{formatMonthDisplay(month.month)}</span>
+                        <span className="text-xs opacity-75">
+                          {(month.roas || 0).toFixed(1)}x
+                        </span>
+                      </button>
+                    ))}
+                    
+                    {/* Fade effect at bottom to indicate more content */}
+                    {data?.monthly_breakdown && data.monthly_breakdown.length > 8 && (
+                      <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white to-transparent pointer-events-none"></div>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           </div>

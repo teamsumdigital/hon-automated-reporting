@@ -129,3 +129,37 @@
 .metric-change.negative {
   @apply text-red-600;
 }
+
+/* Filter sidebar scrolling improvements */
+.filter-sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(209 213 219) rgb(243 244 246);
+}
+
+.filter-sidebar-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.filter-sidebar-scroll::-webkit-scrollbar-track {
+  @apply bg-gray-100 rounded-full;
+}
+
+.filter-sidebar-scroll::-webkit-scrollbar-thumb {
+  @apply bg-gray-300 rounded-full;
+}
+
+.filter-sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-400;
+}
+
+/* Ensure proper touch scrolling on mobile */
+.filter-sidebar-scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* Month filter container specific styling */
+.month-filter-container {
+  max-height: calc(100vh - 24rem); /* Account for header, categories, and padding */
+  min-height: 12rem;
+}

@@ -1,0 +1,287 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "tableId": "tiktok_campaign_data",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "campaign_id",
+              "fieldValue": "={{ $json.campaign_id }}"
+            },
+            {
+              "fieldId": "campaign_name",
+              "fieldValue": "={{ $json.campaign_name }}"
+            },
+            {
+              "fieldId": "category",
+              "fieldValue": "={{ $json.category }}"
+            },
+            {
+              "fieldId": "campaign_type",
+              "fieldValue": "TikTok"
+            },
+            {
+              "fieldId": "reporting_starts",
+              "fieldValue": "={{ $json.date_start }}"
+            },
+            {
+              "fieldId": "reporting_ends",
+              "fieldValue": "={{ $json.date_stop }}"
+            },
+            {
+              "fieldId": "amount_spent_usd",
+              "fieldValue": "={{ $json.amount_spent_usd }}"
+            },
+            {
+              "fieldId": "website_purchases",
+              "fieldValue": "={{ $json.website_purchases }}"
+            },
+            {
+              "fieldId": "purchases_conversion_value",
+              "fieldValue": "={{ $json.purchases_conversion_value }}"
+            },
+            {
+              "fieldId": "impressions",
+              "fieldValue": "={{ $json.impressions }}"
+            },
+            {
+              "fieldId": "link_clicks",
+              "fieldValue": "={{ $json.link_clicks }}"
+            },
+            {
+              "fieldId": "cpa",
+              "fieldValue": "={{ $json.cpa }}"
+            },
+            {
+              "fieldId": "roas",
+              "fieldValue": "={{ $json.roas }}"
+            },
+            {
+              "fieldId": "cpc",
+              "fieldValue": "={{ $json.cpc }}"
+            },
+            {
+              "fieldId": "cpm",
+              "fieldValue": "={{ $json.cpm }}"
+            },
+            {
+              "fieldId": "created_at",
+              "fieldValue": "={{ $json.created_at }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $json.updated_at }}"
+            }
+          ]
+        }
+      },
+      "id": "0379f701-654a-42a2-a489-dee1ca395926",
+      "name": "Insert to TikTok Database",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        480,
+        160
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "U10sH5gW5g96FJkd",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = $input.all();\nconst insertedCount = results.length;\nconst yesterday = new Date();\nyesterday.setDate(yesterday.getDate() - 1);\n\nconsole.log(`Successfully processed ${insertedCount} TikTok Ads campaigns for ${yesterday.toDateString()}`);\n\nreturn {\n  success: true,\n  date: yesterday.toISOString().split('T')[0],\n  campaigns_processed: insertedCount,\n  message: `TikTok Ads daily update completed: ${insertedCount} campaigns processed`\n};"
+      },
+      "id": "8acb1976-51a9-4a0f-9c29-c21a5329c5ef",
+      "name": "Log TikTok Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process TikTok Ads API response and prepare for database insertion\nconst response = $input.all()[0].json;\n\n// TikTok API returns data in response.data.list format\nconst campaigns = response?.data?.list || [];\nconst processedCampaigns = [];\n\n// Category rules for auto-categorization (same as Meta and Google)\nconst categoryRules = {\n  'Bath Mats': ['bathmat', 'bath mat', 'bath-mat'],\n  'Play Furniture': ['play furniture', 'playmat', 'play mat', 'play-mat'],\n  'Standing Mats': ['standing mat', 'standing-mat', 'standing'],\n  'Tumbling Mats': ['tumbling mat', 'tumbling-mat', 'tumbling'],\n  'Rugs': ['rug'],\n  'Kitchen Mats': ['kitchen'],\n  'Outdoor Mats': ['outdoor', 'door'],\n  'Creative Testing': ['creative', 'test'],\n  'Multi Category': ['multi']\n};\n\nfunction categorizeCompany(campaignName) {\n  const name = (campaignName || '').toLowerCase();\n  for (const [category, keywords] of Object.entries(categoryRules)) {\n    if (keywords.some(k => name.includes(k))) return category;\n  }\n  return 'Uncategorized';\n}\n\ncampaigns.forEach((campaign) => {\n  const dimensions = campaign.dimensions || {};\n  const metrics = campaign.metrics || {};\n  \n  // Extract campaign info\n  const campaignId = dimensions.campaign_id || '';\n  const campaignName = dimensions.campaign_name || 'Unknown Campaign';\n  \n  // Extract metrics (TikTok returns as strings)\n  const spend = parseFloat(metrics.spend || 0);\n  const impressions = parseInt(metrics.impressions || 0);\n  const clicks = parseInt(metrics.clicks || 0);\n  \n  // Use TikTok's native Payment Complete metrics\n  const completePayment = parseInt(metrics.complete_payment || 0);\n  const completePaymentRoas = parseFloat(metrics.complete_payment_roas || 0);\n  \n  // Calculate revenue from TikTok's ROAS\n  const revenue = completePaymentRoas * spend;\n  \n  // Calculate derived metrics\n  const cpa = completePayment > 0 ? spend / completePayment : 0;\n  const cpc = clicks > 0 ? spend / clicks : 0;\n  const cpm = impressions > 0 ? (spend / (impressions / 1000)) : 0;\n  \n  // Get yesterday's date\n  const yesterday = new Date();\n  yesterday.setDate(yesterday.getDate() - 1);\n  const dateStr = yesterday.toISOString().split('T')[0];\n  \n  const processedCampaign = {\n    campaign_id: campaignId,\n    campaign_name: campaignName,\n    amount_spent_usd: spend,\n    website_purchases: completePayment,\n    purchases_conversion_value: revenue,\n    impressions: impressions,\n    link_clicks: clicks,\n    date_start: dateStr,\n    date_stop: dateStr,\n    category: categorizeCompany(campaignName),\n    cpa: cpa,\n    roas: completePaymentRoas,\n    cpc: cpc,\n    cpm: cpm,\n    created_at: new Date().toISOString(),\n    updated_at: new Date().toISOString(),\n  };\n  \n  processedCampaigns.push(processedCampaign);\n});\n\nconsole.log(`Processed ${processedCampaigns.length} TikTok Ads campaigns`);\nreturn processedCampaigns;"
+      },
+      "id": "4937631a-4f91-47cb-96fa-bbecf47de93e",
+      "name": "Process & Categorize TikTok Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Calculate yesterday as YYYY-MM-DD\nconst yesterday = new Date();\nyesterday.setDate(yesterday.getDate() - 1);\nconst dateStr = yesterday.toISOString().split('T')[0];\n\n// TikTok API request parameters\nconst requestData = {\n  advertiser_id: \"6961828676572839938\", // HON TikTok Advertiser ID\n  report_type: \"BASIC\",\n  data_level: \"AUCTION_CAMPAIGN\",\n  dimensions: [\"campaign_id\", \"campaign_name\"],\n  metrics: [\n    \"spend\",\n    \"impressions\",\n    \"clicks\",\n    \"ctr\",\n    \"cpc\",\n    \"cpm\",\n    \"cost_per_conversion\",\n    \"conversion_rate\",\n    \"complete_payment_roas\",  // Payment Complete ROAS (website)\n    \"complete_payment\",       // Number of complete payments\n    \"purchase\"               // Purchase events\n  ],\n  start_date: dateStr,\n  end_date: dateStr,\n  page: 1,\n  page_size: 1000\n};\n\nreturn {\n  requestData: requestData,\n  dateRange: dateStr\n};"
+      },
+      "id": "32104afc-b8ac-48ff-81c2-3a0f368d05f9",
+      "name": "Prepare TikTok Ads API Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -200,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://business-api.tiktok.com/open_api/v1.3/report/integrated/get/",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Access-Token",
+              "value": "a3d1496268b35f9ad9a6f0d9d4492ab35d4c0bea"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "advertiser_id",
+              "value": "={{ $json.requestData.advertiser_id }}"
+            },
+            {
+              "name": "report_type",
+              "value": "={{ $json.requestData.report_type }}"
+            },
+            {
+              "name": "data_level",
+              "value": "={{ $json.requestData.data_level }}"
+            },
+            {
+              "name": "dimensions",
+              "value": "={{ JSON.stringify($json.requestData.dimensions) }}"
+            },
+            {
+              "name": "metrics",
+              "value": "={{ JSON.stringify($json.requestData.metrics) }}"
+            },
+            {
+              "name": "start_date",
+              "value": "={{ $json.requestData.start_date }}"
+            },
+            {
+              "name": "end_date",
+              "value": "={{ $json.requestData.end_date }}"
+            },
+            {
+              "name": "page",
+              "value": "={{ $json.requestData.page }}"
+            },
+            {
+              "name": "page_size",
+              "value": "={{ $json.requestData.page_size }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a4d5679b-d228-47a0-90c9-15de0806c43b",
+      "name": "Fetch TikTok Ads Campaign Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        40,
+        160
+      ],
+      "credentials": {}
+    },
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "hour": 6
+            }
+          ]
+        }
+      },
+      "id": "1a58f8aa-81cb-40bc-9476-f0f0f3e902a2",
+      "name": "Daily at 6 AM",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        -460,
+        160
+      ]
+    }
+  ],
+  "connections": {
+    "Insert to TikTok Database": {
+      "main": [
+        [
+          {
+            "node": "Log TikTok Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process & Categorize TikTok Data": {
+      "main": [
+        [
+          {
+            "node": "Insert to TikTok Database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare TikTok Ads API Request": {
+      "main": [
+        [
+          {
+            "node": "Fetch TikTok Ads Campaign Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch TikTok Ads Campaign Data": {
+      "main": [
+        [
+          {
+            "node": "Process & Categorize TikTok Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daily at 6 AM": {
+      "main": [
+        [
+          {
+            "node": "Prepare TikTok Ads API Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "3c429a103c4bcf32791b97d3e959709f5df08a7fb576296b91a92c5eca198620"
+  }
+}

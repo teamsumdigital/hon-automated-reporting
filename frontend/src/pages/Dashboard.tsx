@@ -71,7 +71,7 @@ const Dashboard: React.FC = () => {
 
   // Handle sync button click
   const handleSync = () => {
-    syncMutation.mutate();
+    syncMutation.mutate(undefined);
   };
 
   // Handle export (placeholder)
@@ -197,6 +197,7 @@ const Dashboard: React.FC = () => {
             avg_cpa: 0,
             avg_roas: 0,
             avg_cpc: 0,
+            avg_cpm: 0,
             campaign_count: 0,
             date_range: ''
           }}
@@ -230,10 +231,10 @@ const Dashboard: React.FC = () => {
                   <tr>
                     <th>Category</th>
                     <th className="text-right">Spend</th>
-                    <th className="text-right">Purchases</th>
                     <th className="text-right">Revenue</th>
                     <th className="text-right">ROAS</th>
                     <th className="text-right">CPA</th>
+                    <th className="text-right">CPM</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -243,12 +244,12 @@ const Dashboard: React.FC = () => {
                       <td className="text-right">
                         ${category.amount_spent_usd.toFixed(2)}
                       </td>
-                      <td className="text-right">{category.website_purchases}</td>
                       <td className="text-right">
                         ${category.purchases_conversion_value.toFixed(2)}
                       </td>
                       <td className="text-right">{category.roas.toFixed(2)}</td>
                       <td className="text-right">${category.cpa.toFixed(2)}</td>
+                      <td className="text-right">${category.cpm.toFixed(2)}</td>
                     </tr>
                   ))}
                 </tbody>

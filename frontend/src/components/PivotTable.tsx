@@ -43,16 +43,19 @@ const PivotTable: React.FC<PivotTableProps> = ({ data, loading = false }) => {
   const grandTotal = data.reduce(
     (acc, row) => ({
       spend: acc.spend + row.spend,
-      link_clicks: acc.link_clicks + row.link_clicks,
-      purchases: acc.purchases + row.purchases,
       revenue: acc.revenue + row.revenue,
     }),
-    { spend: 0, link_clicks: 0, purchases: 0, revenue: 0 }
+    { spend: 0, revenue: 0 }
   );
 
-  const grandTotalCPA = grandTotal.purchases > 0 ? grandTotal.spend / grandTotal.purchases : 0;
   const grandTotalROAS = grandTotal.spend > 0 ? grandTotal.revenue / grandTotal.spend : 0;
-  const grandTotalCPC = grandTotal.link_clicks > 0 ? grandTotal.spend / grandTotal.link_clicks : 0;
+  // Calculate weighted averages for CPA, CPC, and CPM from the data
+  const totalCPA = data.reduce((sum, row) => sum + (row.cpa * row.spend), 0);
+  const totalCPC = data.reduce((sum, row) => sum + (row.cpc * row.spend), 0);
+  const totalCPM = data.reduce((sum, row) => sum + (row.cpm * row.spend), 0);
+  const grandTotalCPA = grandTotal.spend > 0 ? totalCPA / grandTotal.spend : 0;
+  const grandTotalCPC = grandTotal.spend > 0 ? totalCPC / grandTotal.spend : 0;
+  const grandTotalCPM = grandTotal.spend > 0 ? totalCPM / grandTotal.spend : 0;
 
   return (
     <div className="w-full overflow-x-auto">
@@ -61,12 +64,11 @@ const PivotTable: React.FC<PivotTableProps> = ({ data, loading = false }) => {
           <tr>
             <th className="text-left">Month</th>
             <th className="text-right">Spend</th>
-            <th className="text-right">Link Clicks</th>
-            <th className="text-right">Purchases</th>
             <th className="text-right">Revenue</th>
-            <th className="text-right">CPA</th>
             <th className="text-right">ROAS</th>
+            <th className="text-right">CPA</th>
             <th className="text-right">CPC</th>
+            <th className="text-right">CPM</th>
           </tr>
         </thead>
         <tbody>
@@ -74,24 +76,22 @@ const PivotTable: React.FC<PivotTableProps> = ({ data, loading = false }) => {
             <tr key={`${row.month}-${index}`}>
               <td className="font-medium">{row.month}</td>
               <td className="text-right">{formatCurrency(row.spend)}</td>
-              <td className="text-right">{formatNumber(row.link_clicks)}</td>
-              <td className="text-right">{formatNumber(row.purchases)}</td>
               <td className="text-right">{formatCurrency(row.revenue)}</td>
-              <td className="text-right">${formatDecimal(row.cpa)}</td>
               <td className="text-right">{formatDecimal(row.roas, 1)}</td>
+              <td className="text-right">${formatDecimal(row.cpa)}</td>
               <td className="text-right">${formatDecimal(row.cpc)}</td>
+              <td className="text-right">${formatDecimal(row.cpm)}</td>
             </tr>
           ))}
           {data.length > 1 && (
             <tr className="border-t-2 border-primary bg-muted/50 font-semibold">
               <td>Grand Total</td>
               <td className="text-right">{formatCurrency(grandTotal.spend)}</td>
-              <td className="text-right">{formatNumber(grandTotal.link_clicks)}</td>
-              <td className="text-right">{formatNumber(grandTotal.purchases)}</td>
               <td className="text-right">{formatCurrency(grandTotal.revenue)}</td>
-              <td className="text-right">${formatDecimal(grandTotalCPA)}</td>
               <td className="text-right">{formatDecimal(grandTotalROAS, 1)}</td>
+              <td className="text-right">${formatDecimal(grandTotalCPA)}</td>
               <td className="text-right">${formatDecimal(grandTotalCPC)}</td>
+              <td className="text-right">${formatDecimal(grandTotalCPM)}</td>
             </tr>
           )}
         </tbody>

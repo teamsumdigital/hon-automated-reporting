@@ -220,6 +220,9 @@ class MetaAdsService:
                 # Calculate CPC using link clicks
                 cpc = (spend / link_clicks).quantize(Decimal('0.0001')) if link_clicks > 0 else Decimal('0')
                 
+                # Calculate CPM
+                cpm = (spend / (Decimal(impressions) / 1000)).quantize(Decimal('0.0001')) if impressions > 0 else Decimal('0')
+                
                 campaign_data = CampaignData(
                     campaign_id=insight.campaign_id,
                     campaign_name=insight.campaign_name,
@@ -232,7 +235,8 @@ class MetaAdsService:
                     link_clicks=link_clicks,
                     cpa=cpa,
                     roas=roas,
-                    cpc=cpc
+                    cpc=cpc,
+                    cpm=cpm
                 )
                 campaign_data_list.append(campaign_data)
                 

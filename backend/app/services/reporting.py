@@ -47,7 +47,8 @@ class ReportingService:
                     "link_clicks": campaign_data.link_clicks,
                     "cpa": float(campaign_data.cpa),
                     "roas": float(campaign_data.roas),
-                    "cpc": float(campaign_data.cpc)
+                    "cpc": float(campaign_data.cpc),
+                    "cpm": float(campaign_data.cpm)
                 }
                 
                 # Upsert (insert or update) the data
@@ -118,14 +119,17 @@ class ReportingService:
             }).reset_index()
             
             # Calculate derived metrics
-            monthly_agg['cpa'] = monthly_agg['amount_spent_usd'] / monthly_agg['website_purchases']
-            monthly_agg['cpa'] = monthly_agg['cpa'].fillna(0)
-            
             monthly_agg['roas'] = monthly_agg['purchases_conversion_value'] / monthly_agg['amount_spent_usd']
             monthly_agg['roas'] = monthly_agg['roas'].fillna(0)
             
+            monthly_agg['cpa'] = monthly_agg['amount_spent_usd'] / monthly_agg['website_purchases']
+            monthly_agg['cpa'] = monthly_agg['cpa'].fillna(0)
+            
             monthly_agg['cpc'] = monthly_agg['amount_spent_usd'] / monthly_agg['link_clicks']
             monthly_agg['cpc'] = monthly_agg['cpc'].fillna(0)
+            
+            monthly_agg['cpm'] = (monthly_agg['amount_spent_usd'] / (monthly_agg['impressions'] / 1000))
+            monthly_agg['cpm'] = monthly_agg['cpm'].fillna(0)
             
             # Sort by month (oldest first, Excel style)
             monthly_agg = monthly_agg.sort_values('month')
@@ -136,12 +140,11 @@ class ReportingService:
                 pivot_data.append(PivotTableData(
                     month=row['month'],
                     spend=Decimal(str(row['amount_spent_usd'])),
-                    link_clicks=int(row['link_clicks']),
-                    purchases=int(row['website_purchases']),
                     revenue=Decimal(str(row['purchases_conversion_value'])),
-                    cpa=Decimal(str(row['cpa'])),
                     roas=Decimal(str(row['roas'])),
-                    cpc=Decimal(str(row['cpc']))
+                    cpa=Decimal(str(row['cpa'])),
+                    cpc=Decimal(str(row['cpc'])),
+                    cpm=Decimal(str(row['cpm']))
                 ))
             
             return pivot_data
@@ -176,6 +179,7 @@ class ReportingService:
                     "avg_cpa": 0,
                     "avg_roas": 0,
                     "avg_cpc": 0,
+                    "avg_cpm": 0,
                     "campaign_count": 0,
                     "date_range": f"{start_of_month} to {target_date}"
                 }
@@ -192,6 +196,7 @@ class ReportingService:
             avg_cpa = total_spend / total_purchases if total_purchases > 0 else 0
             avg_roas = total_revenue / total_spend if total_spend > 0 else 0
             avg_cpc = total_spend / total_clicks if total_clicks > 0 else 0
+            avg_cpm = (total_spend / (total_impressions / 1000)) if total_impressions > 0 else 0
             
             return {
                 "total_spend": float(total_spend),
@@ -202,6 +207,7 @@ class ReportingService:
                 "avg_cpa": float(avg_cpa),
                 "avg_roas": float(avg_roas),
                 "avg_cpc": float(avg_cpc),
+                "avg_cpm": float(avg_cpm),
                 "campaign_count": len(df),
                 "date_range": f"{start_of_month} to {target_date}"
             }
@@ -257,7 +263,6 @@ class ReportingService:
                 'amount_spent_usd': 'sum',
                 'website_purchases': 'sum',
                 'purchases_conversion_value': 'sum',
-                'link_clicks': 'sum',
                 'impressions': 'sum'
             }).reset_index()
             
@@ -268,8 +273,8 @@ class ReportingService:
             category_agg['roas'] = category_agg['purchases_conversion_value'] / category_agg['amount_spent_usd']
             category_agg['roas'] = category_agg['roas'].fillna(0)
             
-            category_agg['cpc'] = category_agg['amount_spent_usd'] / category_agg['link_clicks']
-            category_agg['cpc'] = category_agg['cpc'].fillna(0)
+            category_agg['cpm'] = (category_agg['amount_spent_usd'] / (category_agg['impressions'] / 1000))
+            category_agg['cpm'] = category_agg['cpm'].fillna(0)
             
             # Convert to list of dicts
             return category_agg.to_dict('records')
@@ -348,6 +353,7 @@ class ReportingService:
             avg_cpa = total_spend / total_purchases if total_purchases > 0 else 0
             avg_roas = total_revenue / total_spend if total_spend > 0 else 0
             avg_cpc = total_spend / total_clicks if total_clicks > 0 else 0
+            avg_cpm = (total_spend / (total_impressions / 1000)) if total_impressions > 0 else 0
             
             return {
                 "total_spend": float(total_spend),
@@ -358,6 +364,7 @@ class ReportingService:
                 "avg_cpa": float(avg_cpa),
                 "avg_roas": float(avg_roas),
                 "avg_cpc": float(avg_cpc),
+                "avg_cpm": float(avg_cpm),
                 "campaign_count": len(df)
             }
             

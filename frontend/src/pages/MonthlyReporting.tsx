@@ -94,6 +94,11 @@ const MonthlyReporting: React.FC = () => {
     return grouped;
   };
 
+  // Filter monthly data
+  const filteredMonthlyData = data?.monthly_breakdown?.filter((month: any) => 
+    selectedMonths.length === 0 || selectedMonths.includes(month.month)
+  ) || [];
+
   // Create grouped structure for display
   const groupedData = groupByMonthThenYear(
     selectedMonths.length > 0 ? filteredMonthlyData : data?.monthly_breakdown || []
@@ -109,11 +114,6 @@ const MonthlyReporting: React.FC = () => {
         : [...prev, monthName]
     );
   };
-
-  // Filter monthly data
-  const filteredMonthlyData = data?.monthly_breakdown?.filter((month: any) => 
-    selectedMonths.length === 0 || selectedMonths.includes(month.month)
-  ) || [];
 
   // Calculate totals for filtered months
   const calculateFilteredTotals = (months: any[]) => {

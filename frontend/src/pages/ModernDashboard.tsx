@@ -304,9 +304,9 @@ const ModernDashboard: React.FC = () => {
               color="amber"
             />
             <KPICard
-              title="Total Purchases"
-              value={(currentTotals?.totalPurchases || currentTotals?.total_purchases || 0).toLocaleString()}
-              tooltip="Total number of purchases attributed to Meta advertising"
+              title="CPA"
+              value={`$${(currentTotals?.avgCPA || currentTotals?.avg_cpa || 0).toFixed(2)}`}
+              tooltip="Average cost per acquisition across Meta campaigns"
               color="purple"
             />
           </div>
@@ -320,7 +320,7 @@ const ModernDashboard: React.FC = () => {
               <table className="w-full">
                 <thead className="bg-gray-50 sticky top-0">
                   <tr>
-                    {['Month', 'Spend', 'Link Clicks', 'Purchases', 'Revenue', 'CPA', 'ROAS', 'CPC'].map((header, index) => (
+                    {['Month', 'Spend', 'Revenue', 'ROAS', 'CPA', 'CPC', 'CPM'].map((header, index) => (
                       <th
                         key={header}
                         className={`px-6 py-3 ${index === 0 ? 'text-left' : 'text-right'} text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors`}
@@ -368,20 +368,7 @@ const ModernDashboard: React.FC = () => {
                           ${Math.round(sortedYears.reduce((sum, year) => sum + (yearsInMonth[year].amount_spent_usd || 0), 0)).toLocaleString()}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
-                          {sortedYears.reduce((sum, year) => sum + (yearsInMonth[year].link_clicks || 0), 0).toLocaleString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
-                          {sortedYears.reduce((sum, year) => sum + (yearsInMonth[year].website_purchases || 0), 0).toLocaleString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
                           ${Math.round(sortedYears.reduce((sum, year) => sum + (yearsInMonth[year].purchases_conversion_value || 0), 0)).toLocaleString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
-                          ${(() => {
-                            const totalSpend = sortedYears.reduce((sum, year) => sum + (yearsInMonth[year].amount_spent_usd || 0), 0);
-                            const totalPurchases = sortedYears.reduce((sum, year) => sum + (yearsInMonth[year].website_purchases || 0), 0);
-                            return totalPurchases > 0 ? (totalSpend / totalPurchases).toFixed(2) : '0.00';
-                          })()}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
                           {(() => {
@@ -393,8 +380,22 @@ const ModernDashboard: React.FC = () => {
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
                           ${(() => {
                             const totalSpend = sortedYears.reduce((sum, year) => sum + (yearsInMonth[year].amount_spent_usd || 0), 0);
+                            const totalPurchases = sortedYears.reduce((sum, year) => sum + (yearsInMonth[year].website_purchases || 0), 0);
+                            return totalPurchases > 0 ? (totalSpend / totalPurchases).toFixed(2) : '0.00';
+                          })()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
+                          ${(() => {
+                            const totalSpend = sortedYears.reduce((sum, year) => sum + (yearsInMonth[year].amount_spent_usd || 0), 0);
                             const totalClicks = sortedYears.reduce((sum, year) => sum + (yearsInMonth[year].link_clicks || 0), 0);
                             return totalClicks > 0 ? (totalSpend / totalClicks).toFixed(2) : '0.00';
+                          })()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
+                          ${(() => {
+                            const totalSpend = sortedYears.reduce((sum, year) => sum + (yearsInMonth[year].amount_spent_usd || 0), 0);
+                            const totalImpressions = sortedYears.reduce((sum, year) => sum + (yearsInMonth[year].impressions || 0), 0);
+                            return totalImpressions > 0 ? (totalSpend / (totalImpressions / 1000)).toFixed(2) : '0.00';
                           })()}
                         </td>
                       </tr>
@@ -413,22 +414,23 @@ const ModernDashboard: React.FC = () => {
                               ${Math.round(yearData.amount_spent_usd || 0).toLocaleString()}
                             </td>
                             <td className="px-6 py-3 whitespace-nowrap text-right text-sm text-gray-900">
-                              {(yearData.link_clicks || 0).toLocaleString()}
-                            </td>
-                            <td className="px-6 py-3 whitespace-nowrap text-right text-sm text-gray-900">
-                              {(yearData.website_purchases || 0).toLocaleString()}
-                            </td>
-                            <td className="px-6 py-3 whitespace-nowrap text-right text-sm text-gray-900">
                               ${Math.round(yearData.purchases_conversion_value || 0).toLocaleString()}
-                            </td>
-                            <td className="px-6 py-3 whitespace-nowrap text-right text-sm text-gray-900">
-                              ${(yearData.cpa || 0).toFixed(2)}
                             </td>
                             <td className="px-6 py-3 whitespace-nowrap text-right text-sm text-gray-900">
                               {(yearData.roas || 0).toFixed(1)}
                             </td>
                             <td className="px-6 py-3 whitespace-nowrap text-right text-sm text-gray-900">
+                              ${(yearData.cpa || 0).toFixed(2)}
+                            </td>
+                            <td className="px-6 py-3 whitespace-nowrap text-right text-sm text-gray-900">
                               ${(yearData.cpc || 0).toFixed(2)}
+                            </td>
+                            <td className="px-6 py-3 whitespace-nowrap text-right text-sm text-gray-900">
+                              ${(() => {
+                                const cpm = (yearData.impressions || 0) > 0 ? 
+                                  ((yearData.amount_spent_usd || 0) / ((yearData.impressions || 0) / 1000)) : 0;
+                                return cpm.toFixed(2);
+                              })()}
                             </td>
                           </tr>
                         );

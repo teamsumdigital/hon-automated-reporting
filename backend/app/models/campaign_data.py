@@ -17,6 +17,7 @@ class CampaignData(BaseModel):
     cpa: Decimal = Field(default=0, decimal_places=2)
     roas: Decimal = Field(default=0, decimal_places=4)
     cpc: Decimal = Field(default=0, decimal_places=4)
+    cpm: Decimal = Field(default=0, decimal_places=4)
 
     class Config:
         from_attributes = True
@@ -68,12 +69,11 @@ class MonthlyReport(BaseModel):
 class PivotTableData(BaseModel):
     month: str
     spend: Decimal
-    link_clicks: int
-    purchases: int
     revenue: Decimal
-    cpa: Decimal
     roas: Decimal
+    cpa: Decimal
     cpc: Decimal
+    cpm: Decimal
 
 class DashboardFilters(BaseModel):
     categories: Optional[List[str]] = None

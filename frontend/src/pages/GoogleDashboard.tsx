@@ -241,12 +241,12 @@ const GoogleDashboard: React.FC = () => {
   
   // Apply category filtering first
   let filteredCampaigns = selectedCategories.length > 0
-    ? allCampaigns.filter(campaign => selectedCategories.includes(campaign.category))
+    ? allCampaigns.filter(campaign => selectedCategories.includes(campaign.category || ''))
     : allCampaigns;
   
   // Apply campaign type filtering
   filteredCampaigns = selectedCampaignTypes.length > 0
-    ? filteredCampaigns.filter(campaign => selectedCampaignTypes.includes(campaign.campaign_type))
+    ? filteredCampaigns.filter(campaign => selectedCampaignTypes.includes(campaign.campaign_type || ''))
     : filteredCampaigns;
     
   // Calculate filtered pivot data from campaigns when any filters are selected

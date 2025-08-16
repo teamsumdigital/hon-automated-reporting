@@ -48,6 +48,7 @@ export interface CampaignData {
   cpa: number;
   roas: number;
   cpc: number;
+  cpm: number;
   created_at: string;
   updated_at: string;
 }
@@ -55,12 +56,11 @@ export interface CampaignData {
 export interface PivotTableData {
   month: string;
   spend: number;
-  link_clicks: number;
-  purchases: number;
   revenue: number;
-  cpa: number;
   roas: number;
+  cpa: number;
   cpc: number;
+  cpm: number;
 }
 
 export interface MTDSummary {
@@ -72,6 +72,7 @@ export interface MTDSummary {
   avg_cpa: number;
   avg_roas: number;
   avg_cpc: number;
+  avg_cpm: number;
   campaign_count: number;
   date_range: string;
 }
@@ -81,11 +82,10 @@ export interface CategoryBreakdown {
   amount_spent_usd: number;
   website_purchases: number;
   purchases_conversion_value: number;
-  link_clicks: number;
   impressions: number;
   cpa: number;
   roas: number;
-  cpc: number;
+  cpm: number;
 }
 
 export interface DashboardData {

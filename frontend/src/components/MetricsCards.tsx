@@ -95,10 +95,10 @@ const MetricsCards: React.FC<MetricsCardsProps> = ({ summary, loading = false })
       subtitle: 'Cost Per Acquisition',
     },
     {
-      title: 'Link Clicks',
-      value: formatNumber(summary.total_clicks || 0),
-      icon: <MousePointer className="w-5 h-5" />,
-      subtitle: `$${formatDecimal(summary.avg_cpc || 0)} CPC`,
+      title: 'CPM',
+      value: `$${formatDecimal(summary.avg_cpm || 0)}`,
+      icon: <Zap className="w-5 h-5" />,
+      subtitle: 'Cost Per Mille',
     },
     {
       title: 'Impressions',

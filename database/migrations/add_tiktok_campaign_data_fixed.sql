@@ -1,5 +1,5 @@
--- TikTok Ads Campaign Data Table Migration
--- Adds TikTok Ads support alongside existing Meta Ads and Google Ads data
+-- TikTok Ads Campaign Data Table Migration (Fixed Version)
+-- Run this in Supabase SQL Editor
 
 -- TikTok Campaign data table to store TikTok Ads metrics
 CREATE TABLE IF NOT EXISTS tiktok_campaign_data (
@@ -43,10 +43,11 @@ CREATE TABLE IF NOT EXISTS tiktok_monthly_reports (
     UNIQUE(report_month, report_date)
 );
 
--- Indexes for performance (same as Meta/Google structure)
+-- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_tiktok_campaign_data_date_range ON tiktok_campaign_data(reporting_starts, reporting_ends);
 CREATE INDEX IF NOT EXISTS idx_tiktok_campaign_data_category ON tiktok_campaign_data(category);
 CREATE INDEX IF NOT EXISTS idx_tiktok_campaign_data_campaign_id ON tiktok_campaign_data(campaign_id);
+CREATE INDEX IF NOT EXISTS idx_tiktok_campaign_data_campaign_type ON tiktok_campaign_data(campaign_type);
 
 -- Function to auto-categorize TikTok campaigns (reuse existing logic)
 CREATE OR REPLACE FUNCTION auto_categorize_tiktok_campaign(campaign_name_input VARCHAR)
@@ -55,7 +56,7 @@ DECLARE
     result_category VARCHAR(100);
     rule_record RECORD;
 BEGIN
-    -- Check for manual override first (will need platform-specific overrides)
+    -- Check for manual override first
     SELECT category INTO result_category 
     FROM category_overrides 
     WHERE campaign_id = (SELECT campaign_id FROM tiktok_campaign_data WHERE campaign_name = campaign_name_input LIMIT 1)
@@ -100,32 +101,12 @@ CREATE TRIGGER auto_categorize_tiktok_trigger
     EXECUTE FUNCTION trigger_auto_categorize_tiktok();
 
 -- Update category_overrides table to support platform distinction
--- This allows platform-specific category overrides
 DO $$ 
 BEGIN
     -- Add platform column if it doesn't exist
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
                    WHERE table_name = 'category_overrides' AND column_name = 'platform') THEN
         ALTER TABLE category_overrides ADD COLUMN platform VARCHAR(20) DEFAULT 'meta';
-    END IF;
-END $$;
-
--- Update unique constraint to include platform
-DO $$
-BEGIN
-    -- Drop old constraint if it exists
-    IF EXISTS (SELECT 1 FROM information_schema.table_constraints 
-               WHERE constraint_name = 'category_overrides_campaign_id_key' 
-               AND table_name = 'category_overrides') THEN
-        ALTER TABLE category_overrides DROP CONSTRAINT category_overrides_campaign_id_key;
-    END IF;
-    
-    -- Add new constraint with platform
-    IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints 
-                   WHERE constraint_name = 'category_overrides_campaign_platform_key' 
-                   AND table_name = 'category_overrides') THEN
-        ALTER TABLE category_overrides ADD CONSTRAINT category_overrides_campaign_platform_key 
-        UNIQUE(campaign_id, platform);
     END IF;
 END $$;
 
@@ -136,46 +117,8 @@ ON category_overrides(platform, campaign_id);
 -- Comments for documentation
 COMMENT ON TABLE tiktok_campaign_data IS 'TikTok Ads campaign performance data with same structure as Meta/Google Ads';
 COMMENT ON TABLE tiktok_monthly_reports IS 'Monthly TikTok Ads performance snapshots';
-COMMENT ON COLUMN category_overrides.platform IS 'Platform identifier: meta, google, or tiktok';
 
--- Add example category rules specific to TikTok if needed
--- (These would be the same as existing rules since we use unified categorization)
--- Only insert if they don't already exist to prevent duplicates
-DO $$
-BEGIN
-    -- Insert TikTok-specific rules only if they don't exist
-    IF NOT EXISTS (SELECT 1 FROM category_rules WHERE rule_name = 'TikTok Play Mats Pattern') THEN
-        INSERT INTO category_rules (rule_name, pattern, category, priority) VALUES
-            ('TikTok Play Mats Pattern', '%Play%Mat%', 'Play Mats', 2);
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM category_rules WHERE rule_name = 'TikTok Standing Mats Pattern') THEN
-        INSERT INTO category_rules (rule_name, pattern, category, priority) VALUES
-            ('TikTok Standing Mats Pattern', '%Standing%', 'Standing Mats', 1);
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM category_rules WHERE rule_name = 'TikTok Bath Mats Pattern') THEN
-        INSERT INTO category_rules (rule_name, pattern, category, priority) VALUES
-            ('TikTok Bath Mats Pattern', '%Bath%', 'Bath Mats', 1);
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM category_rules WHERE rule_name = 'TikTok Tumbling Pattern') THEN
-        INSERT INTO category_rules (rule_name, pattern, category, priority) VALUES
-            ('TikTok Tumbling Pattern', '%Tumbling%', 'Tumbling Mats', 1);
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM category_rules WHERE rule_name = 'TikTok High Chair Pattern') THEN
-        INSERT INTO category_rules (rule_name, pattern, category, priority) VALUES
-            ('TikTok High Chair Pattern', '%High Chair%', 'High Chair Mats', 1);
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM category_rules WHERE rule_name = 'TikTok Multi Category Pattern') THEN
-        INSERT INTO category_rules (rule_name, pattern, category, priority) VALUES
-            ('TikTok Multi Category Pattern', '%Creative Testing%', 'Multi Category', 1);
-    END IF;
-END $$;
-
--- Create view for unified campaign data across all platforms (optional)
+-- Create unified view for all platforms (optional)
 CREATE OR REPLACE VIEW unified_campaign_data AS
 SELECT 
     'meta' as platform,
@@ -241,4 +184,5 @@ SELECT
     updated_at
 FROM tiktok_campaign_data;
 
-COMMENT ON VIEW unified_campaign_data IS 'Unified view of campaign data across Meta, Google, and TikTok platforms';
+-- Final success message
+SELECT 'TikTok database migration completed successfully!' as result;

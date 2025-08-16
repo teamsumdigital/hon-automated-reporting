@@ -127,6 +127,9 @@ class ReportingService:
             monthly_agg['cpc'] = monthly_agg['amount_spent_usd'] / monthly_agg['link_clicks']
             monthly_agg['cpc'] = monthly_agg['cpc'].fillna(0)
             
+            # Sort by month (oldest first, Excel style)
+            monthly_agg = monthly_agg.sort_values('month')
+            
             # Convert to PivotTableData models
             pivot_data = []
             for _, row in monthly_agg.iterrows():

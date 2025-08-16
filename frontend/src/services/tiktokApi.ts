@@ -6,6 +6,7 @@ export interface TikTokCampaignData {
   campaign_id: string;
   campaign_name: string;
   category?: string;
+  campaign_type?: string;
   reporting_starts: string;
   reporting_ends: string;
   amount_spent_usd: number;
@@ -60,6 +61,7 @@ export interface TikTokDashboardData {
   pivot_data: TikTokPivotTableData[];
   categories: string[];
   category_breakdown?: TikTokCategoryBreakdown[];
+  campaigns?: TikTokCampaignData[];
 }
 
 export interface TikTokDashboardFilters {
@@ -217,6 +219,25 @@ class TikTokApiClient {
     return this.request(`/api/tiktok-reports/performance-comparison?months=${months}`);
   }
 }
+
+// Utility functions for formatting TikTok data
+export const formatTikTokCurrency = (value: number): string => {
+  if (value === 0) return '$0';
+  if (value < 1000) return `$${value.toFixed(0)}`;
+  if (value < 1000000) return `$${(value / 1000).toFixed(1)}K`;
+  return `$${(value / 1000000).toFixed(1)}M`;
+};
+
+export const formatTikTokNumber = (value: number): string => {
+  if (value === 0) return '0';
+  if (value < 1000) return value.toString();
+  if (value < 1000000) return `${(value / 1000).toFixed(1)}K`;
+  return `${(value / 1000000).toFixed(1)}M`;
+};
+
+export const formatTikTokDecimal = (value: number, decimals: number = 2): string => {
+  return value.toFixed(decimals);
+};
 
 // Export singleton instance
 export const tiktokApiClient = new TikTokApiClient();

@@ -16,21 +16,44 @@ class MetaAdsService:
         self.app_secret = os.getenv("META_APP_SECRET")
         self.access_token = os.getenv("META_ACCESS_TOKEN")
         self.account_id = os.getenv("META_ACCOUNT_ID")
+        self.secondary_account_id = os.getenv("META_ACCOUNT_ID_SECONDARY")
         
         if not all([self.app_id, self.app_secret, self.access_token, self.account_id]):
             raise ValueError("Missing required Meta Ads API credentials")
         
         FacebookAdsApi.init(access_token=self.access_token)
         self.ad_account = AdAccount(f"act_{self.account_id}")
+        
+        # Initialize secondary account if configured
+        self.secondary_ad_account = None
+        if self.secondary_account_id:
+            self.secondary_ad_account = AdAccount(f"act_{self.secondary_account_id}")
+            logger.info(f"Initialized dual Meta Ads accounts: {self.account_id} and {self.secondary_account_id}")
+        else:
+            logger.info(f"Initialized single Meta Ads account: {self.account_id}")
     
-    def get_campaign_insights(
-        self, 
-        start_date: date, 
+    def _apply_august_2025_limit(self, start_date: date, end_date: date) -> tuple[date, date]:
+        """
+        Apply August 11, 2025 limit for backfill testing
+        """
+        # If we're fetching August 2025 data, limit to August 11
+        if start_date.year == 2025 and start_date.month == 8:
+            august_11_2025 = date(2025, 8, 11)
+            if end_date > august_11_2025:
+                logger.info(f"Limiting August 2025 backfill from {end_date} to {august_11_2025} for testing")
+                end_date = august_11_2025
+        return start_date, end_date
+    
+    def _fetch_account_insights(
+        self,
+        ad_account: AdAccount,
+        account_name: str,
+        start_date: date,
         end_date: date,
         campaigns: Optional[List[str]] = None
     ) -> List[MetaAdsInsight]:
         """
-        Fetch campaign insights from Meta Ads API for the specified date range
+        Fetch insights for a specific ad account
         """
         try:
             params = {
@@ -64,7 +87,7 @@ class MetaAdsService:
                     }
                 ]
             
-            insights = self.ad_account.get_insights(params=params)
+            insights = ad_account.get_insights(params=params)
             
             results = []
             for insight in insights:
@@ -99,7 +122,7 @@ class MetaAdsService:
                     purchase_roas=[{'value': str(roas_value)}] if roas_value > 0 else [],
                     impressions=insight.get('impressions', '0'),
                     clicks=insight.get('clicks', '0'),
-                    link_clicks=link_clicks,  # Add extracted link_clicks
+                    link_clicks=link_clicks,
                     cpm=insight.get('cpm', '0'),
                     cpc=insight.get('cpc', '0'),
                     ctr=insight.get('ctr', '0'),
@@ -108,8 +131,55 @@ class MetaAdsService:
                 )
                 results.append(meta_insight)
             
-            logger.info(f"Retrieved {len(results)} campaign insights for {start_date} to {end_date}")
+            logger.info(f"Retrieved {len(results)} campaign insights from {account_name} for {start_date} to {end_date}")
             return results
+            
+        except FacebookRequestError as e:
+            logger.error(f"Facebook API error for account {account_name}: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Error fetching campaign insights from {account_name}: {e}")
+            raise
+    
+    def get_campaign_insights(
+        self, 
+        start_date: date, 
+        end_date: date,
+        campaigns: Optional[List[str]] = None
+    ) -> List[MetaAdsInsight]:
+        """
+        Fetch campaign insights from Meta Ads API for the specified date range
+        Now supports dual accounts and August 2025 testing limitations
+        """
+        try:
+            # Apply August 2025 limitation for testing
+            start_date, end_date = self._apply_august_2025_limit(start_date, end_date)
+            
+            # Fetch from primary account
+            primary_results = self._fetch_account_insights(
+                self.ad_account, 
+                f"Primary ({self.account_id})", 
+                start_date, 
+                end_date, 
+                campaigns
+            )
+            
+            # Fetch from secondary account if configured
+            secondary_results = []
+            if self.secondary_ad_account:
+                secondary_results = self._fetch_account_insights(
+                    self.secondary_ad_account,
+                    f"Secondary ({self.secondary_account_id})",
+                    start_date,
+                    end_date,
+                    campaigns
+                )
+            
+            # Combine results from both accounts
+            all_results = primary_results + secondary_results
+            
+            logger.info(f"Retrieved {len(primary_results)} insights from primary account, {len(secondary_results)} from secondary account (total: {len(all_results)})")
+            return all_results
             
         except FacebookRequestError as e:
             logger.error(f"Facebook API error: {e}")
@@ -190,12 +260,18 @@ class MetaAdsService:
     
     def test_connection(self) -> bool:
         """
-        Test the Meta Ads API connection
+        Test the Meta Ads API connection for both accounts
         """
         try:
-            # Simple test to get account info
-            account_info = self.ad_account.api_get(fields=['name', 'account_status'])
-            logger.info(f"Connected to account: {account_info.get('name', 'Unknown')}")
+            # Test primary account
+            primary_account_info = self.ad_account.api_get(fields=['name', 'account_status'])
+            logger.info(f"Connected to primary account: {primary_account_info.get('name', 'Unknown')} (ID: {self.account_id})")
+            
+            # Test secondary account if configured
+            if self.secondary_ad_account:
+                secondary_account_info = self.secondary_ad_account.api_get(fields=['name', 'account_status'])
+                logger.info(f"Connected to secondary account: {secondary_account_info.get('name', 'Unknown')} (ID: {self.secondary_account_id})")
+            
             return True
         except Exception as e:
             logger.error(f"Connection test failed: {e}")

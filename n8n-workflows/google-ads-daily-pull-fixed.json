@@ -1,0 +1,249 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "hour": 5
+            }
+          ]
+        }
+      },
+      "id": "d8ef9858-c75c-4965-a245-8190c97fe524",
+      "name": "Daily at 5 AM",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        -460,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "tableId": "google_campaign_data",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "campaign_id",
+              "fieldValue": "={{ $json.campaign_id }}"
+            },
+            {
+              "fieldId": "campaign_name",
+              "fieldValue": "={{ $json.campaign_name }}"
+            },
+            {
+              "fieldId": "category",
+              "fieldValue": "={{ $json.category }}"
+            },
+            {
+              "fieldId": "campaign_type",
+              "fieldValue": "={{ $json.campaign_type }}"
+            },
+            {
+              "fieldId": "reporting_starts",
+              "fieldValue": "={{ $json.date_start }}"
+            },
+            {
+              "fieldId": "reporting_ends",
+              "fieldValue": "={{ $json.date_stop }}"
+            },
+            {
+              "fieldId": "amount_spent_usd",
+              "fieldValue": "={{ $json.amount_spent_usd }}"
+            },
+            {
+              "fieldId": "website_purchases",
+              "fieldValue": "={{ $json.website_purchases }}"
+            },
+            {
+              "fieldId": "purchases_conversion_value",
+              "fieldValue": "={{ $json.purchases_conversion_value }}"
+            },
+            {
+              "fieldId": "impressions",
+              "fieldValue": "={{ $json.impressions }}"
+            },
+            {
+              "fieldId": "link_clicks",
+              "fieldValue": "={{ $json.link_clicks }}"
+            },
+            {
+              "fieldId": "cpa",
+              "fieldValue": "={{ $json.cpa }}"
+            },
+            {
+              "fieldId": "roas",
+              "fieldValue": "={{ $json.roas }}"
+            },
+            {
+              "fieldId": "cpc",
+              "fieldValue": "={{ $json.cpc }}"
+            },
+            {
+              "fieldId": "created_at",
+              "fieldValue": "={{ $json.created_at }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $json.updated_at }}"
+            }
+          ]
+        }
+      },
+      "id": "ae9e92dd-07ca-4a7a-9cbc-5751f6f35f7e",
+      "name": "Insert to Google Database",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        480,
+        -120
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "U10sH5gW5g96FJkd",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = $input.all();\nconst insertedCount = results.length;\nconst yesterday = new Date();\nyesterday.setDate(yesterday.getDate() - 1);\n\nconsole.log(`Successfully processed ${insertedCount} Google Ads campaigns for ${yesterday.toDateString()}`);\n\nreturn {\n  success: true,\n  date: yesterday.toISOString().split('T')[0],\n  campaigns_processed: insertedCount,\n  message: `Google Ads daily update completed: ${insertedCount} campaigns processed`\n};"
+      },
+      "id": "beafbbda-9675-4b3b-a515-6e13ed0429d6",
+      "name": "Log Google Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process Google Ads API response and prepare for database insertion\nconst response = $input.all()[0].json;\nconst campaigns = response.results || [];\nconst processedCampaigns = [];\n\n// Category rules for auto-categorization (same as Meta)\nconst categoryRules = {\n  'Bath Mats': ['bathmat', 'bath mat', 'bath-mat'],\n  'Play Furniture': ['play furniture', 'playmat', 'play mat', 'play-mat'],\n  'Standing Mats': ['standing mat', 'standing-mat', 'standing'],\n  'Tumbling Mats': ['tumbling mat', 'tumbling-mat', 'tumbling'],\n  'Rugs': ['rug'],\n  'Kitchen Mats': ['kitchen'],\n  'Outdoor Mats': ['outdoor', 'door'],\n  'Creative Testing': ['creative', 'test'],\n  'Multi Category': ['multi']\n};\n\n// Campaign type classification\nfunction classifyCampaignType(campaignName) {\n  const name = campaignName.toLowerCase();\n  if (name.includes('brand') || name.includes('competitor')) {\n    return 'Brand';\n  }\n  if (name.includes('youtube') || name.includes('video') || name.includes('yt')) {\n    return 'YouTube';\n  }\n  return 'Non-Brand';\n}\n\nfunction categorizeCompany(campaignName) {\n  const name = campaignName.toLowerCase();\n  for (const [category, keywords] of Object.entries(categoryRules)) {\n    if (keywords.some(keyword => name.includes(keyword))) {\n      return category;\n    }\n  }\n  return 'Uncategorized';\n}\n\n// Process each campaign from Google Ads API\ncampaigns.forEach(campaign => {\n  const campaignData = campaign.campaign || {};\n  const metrics = campaign.metrics || {};\n  \n  // Extract values from Google Ads response\n  const campaignId = campaignData.resource_name ? campaignData.resource_name.split('/').pop() : campaignData.id;\n  const campaignName = campaignData.name || 'Unknown Campaign';\n  const costMicros = parseInt(metrics.cost_micros) || 0;\n  const cost = costMicros / 1000000; // Convert from micros to dollars\n  const impressions = parseInt(metrics.impressions) || 0;\n  const clicks = parseInt(metrics.clicks) || 0;\n  const conversions = parseFloat(metrics.conversions) || 0;\n  const conversionValue = parseFloat(metrics.conversion_value_micros) || 0;\n  const conversionValueDollars = conversionValue / 1000000; // Convert from micros\n  \n  // Calculate yesterday's date\n  const yesterday = new Date();\n  yesterday.setDate(yesterday.getDate() - 1);\n  const dateStr = yesterday.toISOString().split('T')[0];\n  \n  const processedCampaign = {\n    campaign_id: campaignId,\n    campaign_name: campaignName,\n    campaign_type: classifyCampaignType(campaignName),\n    amount_spent_usd: cost,\n    link_clicks: clicks,\n    impressions: impressions,\n    website_purchases: Math.round(conversions),\n    purchases_conversion_value: conversionValueDollars,\n    date_start: dateStr,\n    date_stop: dateStr,\n    category: categorizeCompany(campaignName),\n    cpa: conversions > 0 ? cost / conversions : 0,\n    roas: cost > 0 ? conversionValueDollars / cost : 0,\n    cpc: clicks > 0 ? cost / clicks : 0,\n    created_at: new Date().toISOString(),\n    updated_at: new Date().toISOString()\n  };\n\n  processedCampaigns.push(processedCampaign);\n});\n\nconsole.log(`Processed ${processedCampaigns.length} Google Ads campaigns`);\nreturn processedCampaigns;"
+      },
+      "id": "5bdc444f-1650-4afb-bb10-6f8e5e5f3dff",
+      "name": "Process & Categorize Google Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Calculate yesterday as YYYY-MM-DD for Google Ads API\nconst yesterday = new Date();\nyesterday.setDate(yesterday.getDate() - 1);\nconst dateStr = yesterday.toISOString().split('T')[0];\n\n// Google Ads API Query (GAQL - Google Ads Query Language)\nconst gaqlQuery = `SELECT campaign.id, campaign.name, campaign.resource_name, metrics.cost_micros, metrics.impressions, metrics.clicks, metrics.conversions, metrics.conversion_value_micros FROM campaign WHERE segments.date = '${dateStr}' AND campaign.status = 'ENABLED' ORDER BY metrics.cost_micros DESC`;\n\nreturn {\n  customerId: '9860652386',\n  query: gaqlQuery,\n  dateRange: dateStr\n};"
+      },
+      "id": "7daf5b92-eb2c-4e9d-8b30-7e26d7e3bcef",
+      "name": "Prepare Google Ads API Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -200,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://googleads.googleapis.com/v16/customers/{{ $json.customerId }}/googleAds:searchStream",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={ \"query\": \"{{ $json.query }}\" }",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "developer-token",
+              "value": "-gJOMMcQIcQBxKuaUd0FhA"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5a4d1669-d4f6-4e61-b550-f1eaf3bbabad",
+      "name": "Fetch Google Ads Campaign Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        40,
+        -120
+      ],
+      "credentials": {
+        "googleOAuth2Api": {
+          "id": "google_oauth_creds",
+          "name": "Google OAuth2 for Ads API"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Daily at 5 AM": {
+      "main": [
+        [
+          {
+            "node": "Prepare Google Ads API Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert to Google Database": {
+      "main": [
+        [
+          {
+            "node": "Log Google Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process & Categorize Google Data": {
+      "main": [
+        [
+          {
+            "node": "Insert to Google Database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Google Ads API Request": {
+      "main": [
+        [
+          {
+            "node": "Fetch Google Ads Campaign Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Google Ads Campaign Data": {
+      "main": [
+        [
+          {
+            "node": "Process & Categorize Google Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": "3c429a103c4bcf32791b97d3e959709f5df08a7fb576296b91a92c5eca198620"
+  }
+}

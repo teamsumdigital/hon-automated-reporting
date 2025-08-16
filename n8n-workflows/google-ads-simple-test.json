@@ -1,0 +1,72 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "// Simple test query for Google Ads API\nreturn {\n  query: \"SELECT campaign.id, campaign.name, campaign.status FROM campaign LIMIT 5\"\n};"
+      },
+      "id": "test-prepare",
+      "name": "Prepare Simple Test",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://googleads.googleapis.com/v16/customers/9860652386/googleAds:search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={ \"query\": \"{{ $json.query }}\" }",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "developer-token",
+              "value": "-gJOMMcQIcQBxKuaUd0FhA"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "test-request",
+      "name": "Test Google Ads API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        0,
+        0
+      ],
+      "credentials": {
+        "googleOAuth2Api": {
+          "id": "google_oauth_creds",
+          "name": "Google OAuth2 for Ads API"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Prepare Simple Test": {
+      "main": [
+        [
+          {
+            "node": "Test Google Ads API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

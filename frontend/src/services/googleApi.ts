@@ -8,6 +8,7 @@ export interface GoogleCampaignData {
   campaign_id: string;
   campaign_name: string;
   category: string | null;
+  campaign_type: string | null;
   reporting_starts: string;
   reporting_ends: string;
   amount_spent_usd: number;
@@ -48,9 +49,12 @@ export interface GoogleMTDSummary {
 export interface GoogleDashboardData {
   summary: GoogleMTDSummary;
   pivot_data: GooglePivotTableData[];
+  campaigns: GoogleCampaignData[];
   categories: string[];
+  campaign_types: string[];
   filters?: {
     categories?: string[];
+    campaign_types?: string[];
     start_date?: string;
     end_date?: string;
   };
@@ -119,6 +123,7 @@ class GoogleAdsApiService {
    */
   async getDashboardData(params?: {
     categories?: string;
+    campaign_types?: string;
     start_date?: string;
     end_date?: string;
   }): Promise<GoogleDashboardData> {

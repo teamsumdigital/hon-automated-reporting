@@ -1,15 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import TabNavigation, { TabType } from '../components/TabNavigation';
 import ModernDashboard from './ModernDashboard';
 import GoogleDashboard from './GoogleDashboard';
 import TikTokDashboard from './TikTokDashboard';
 
 const MainDashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<TabType>('meta');
+  // Get the last active tab from localStorage, fallback to 'meta'
+  const getInitialTab = (): TabType => {
+    const savedTab = localStorage.getItem('activeTab');
+    if (savedTab && ['meta', 'google', 'tiktok'].includes(savedTab)) {
+      return savedTab as TabType;
+    }
+    return 'meta';
+  };
+
+  const [activeTab, setActiveTab] = useState<TabType>(getInitialTab);
 
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);
+    // Save the active tab to localStorage
+    localStorage.setItem('activeTab', tab);
   };
+
+  // Update localStorage when activeTab changes (for any reason)
+  useEffect(() => {
+    localStorage.setItem('activeTab', activeTab);
+  }, [activeTab]);
 
   return (
     <div className="min-h-screen bg-gray-50">

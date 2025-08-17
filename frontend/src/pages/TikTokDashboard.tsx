@@ -499,7 +499,7 @@ const TikTokDashboard: React.FC = () => {
                     )}
                   </div>
                   <div className="space-y-2 month-filter-container overflow-y-auto filter-sidebar-scroll relative">
-                    {data?.pivot_data?.map((month: any) => (
+                    {data?.pivot_data?.sort((a: any, b: any) => b.month.localeCompare(a.month)).map((month: any) => (
                       <button
                         key={month.month}
                         onClick={() => toggleMonth(month.month)}

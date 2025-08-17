@@ -225,7 +225,7 @@ const MonthlyReporting: React.FC = () => {
       <div style={{ marginBottom: '20px' }}>
         <h3>Filter by Month:</h3>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '10px' }}>
-          {data?.monthly_breakdown?.map((month: any) => (
+          {data?.monthly_breakdown?.sort((a: any, b: any) => b.month.localeCompare(a.month)).map((month: any) => (
             <button
               key={month.month}
               onClick={() => toggleMonth(month.month)}

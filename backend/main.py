@@ -22,12 +22,25 @@ app = FastAPI(
     version="1.2.0"
 )
 
-# CORS middleware
+# CORS middleware - Configure allowed origins
+allowed_origins = [
+    "http://localhost:3007",  # Development frontend
+    "http://localhost:3000",  # Legacy development port
+    # Add production Netlify URL after deployment:
+    # "https://your-netlify-site.netlify.app",
+]
+
+# Allow all origins in development, restrict in production
+if os.getenv("ENVIRONMENT") == "production":
+    origins = [origin for origin in allowed_origins if origin.startswith("https://")]
+else:
+    origins = allowed_origins
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure this properly for production
+    allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],
 )
 
@@ -71,7 +84,7 @@ async def root():
 async def health_check():
     return {
         "status": "healthy",
-        "environment": os.getenv("APP_ENV", "development"),
+        "environment": os.getenv("ENVIRONMENT", "development"),
         "debug_mode": os.getenv("DEBUG_MODE", "false").lower() == "true"
     }
 

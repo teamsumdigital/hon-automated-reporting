@@ -26,8 +26,7 @@ app = FastAPI(
 allowed_origins = [
     "http://localhost:3007",  # Development frontend
     "http://localhost:3000",  # Legacy development port
-    # Add production Netlify URL after deployment:
-    # "https://your-netlify-site.netlify.app",
+    "https://hon-automated-reporting.netlify.app",  # Production frontend
 ]
 
 # Allow all origins in development, restrict in production

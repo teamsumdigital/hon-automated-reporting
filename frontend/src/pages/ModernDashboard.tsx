@@ -98,7 +98,7 @@ const ModernDashboard: React.FC = () => {
       ? `?categories=${selectedCategories.join(',')}` 
       : '';
     
-    fetch(`/api/reports/monthly${categoryParams}`)
+    fetch(`https://hon-automated-reporting.onrender.com/api/reports/monthly${categoryParams}`)
       .then(response => {
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);

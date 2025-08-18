@@ -5,6 +5,9 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App.tsx'
 import './index.css'
 
+// Force deployment update - API URL fix
+console.log('🚀 DEPLOYMENT UPDATE: Hardcoded backend URL should be active');
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

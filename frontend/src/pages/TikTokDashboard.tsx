@@ -100,7 +100,7 @@ const TikTokDashboard: React.FC = () => {
       ? `?categories=${selectedCategories.join(',')}` 
       : '';
     
-    fetch(`/api/tiktok-reports/dashboard${categoryParams}`)
+    fetch(`https://hon-automated-reporting.onrender.com/api/tiktok-reports/dashboard${categoryParams}`)
       .then(response => {
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);

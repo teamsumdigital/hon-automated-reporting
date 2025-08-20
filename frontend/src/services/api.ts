@@ -208,6 +208,37 @@ export const apiClient = {
     const response = await api.get('/health');
     return response.data;
   },
+
+  // Ad-level dashboard endpoints
+  getAdLevelData: async (filters?: {
+    categories?: string;
+    content_types?: string;
+    formats?: string;
+    campaign_optimizations?: string;
+  }): Promise<any> => {
+    const response = await api.get('/api/meta-ad-reports/ad-data', { params: filters });
+    return response.data;
+  },
+
+  getAdLevelSummary: async (filters?: {
+    categories?: string;
+    content_types?: string;
+    formats?: string;
+    campaign_optimizations?: string;
+  }): Promise<any> => {
+    const response = await api.get('/api/meta-ad-reports/summary', { params: filters });
+    return response.data;
+  },
+
+  getAdLevelFilters: async (): Promise<any> => {
+    const response = await api.get('/api/meta-ad-reports/filters');
+    return response.data;
+  },
+
+  syncAdLevel14Days: async (): Promise<any> => {
+    const response = await api.post('/api/meta-ad-reports/sync-14-days');
+    return response.data;
+  },
 };
 
 export default api;

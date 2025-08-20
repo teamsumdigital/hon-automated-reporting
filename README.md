@@ -1,29 +1,33 @@
 # HON Automated Reporting System
 
-A complete automated reporting solution for House of Noa's Meta Ads and Google Ads campaigns with accurate link_clicks data extraction, monthly breakdowns, Excel-style tab navigation, and daily automation via n8n.
+A complete automated reporting solution for House of Noa's multi-platform advertising campaigns with enhanced ad name parsing, weekly segmentation, real ad ID verification, and comprehensive platform support.
 
 ## 🎯 Features
 
 ### Multi-Platform Support
-- **Meta Ads Integration**: Accurate `link_clicks` extraction from Meta API actions array (not total clicks)
+- **Meta Ads Integration**: Enhanced parsing with dual account support and real ad ID verification
 - **Google Ads Integration**: Native Google Ads API integration with proper conversion tracking
-- **Excel-Style Tabs**: Switch between Meta Ads and Google Ads dashboards with bottom tab navigation
-- **Unified Categorization**: Same product categorization system works across both platforms
+- **TikTok Ads Integration**: Complete TikTok Marketing API integration
+- **OpenAI Integration**: AI-powered data analysis and insights
+- **Excel-Style Tabs**: Switch between platform dashboards with bottom tab navigation
+- **Unified Categorization**: Same product categorization system works across all platforms
 
 ### Data & Analytics  
-- **Historical Data**: Complete monthly breakdowns from January 2024 to present for both platforms
-- **Real-time Dashboards**: React frontend with monthly pivot tables and filtering for each platform
-- **Automated Daily Updates**: n8n workflows for 5am daily data pulls from both APIs
-- **Campaign Categorization**: Automatic categorization by product lines (Play Mats, Standing Mats, etc.)
-- **Realistic CPC Values**: Accurate cost-per-click calculations ($1.30-$2.00 range)
+- **Ad-Level Data**: 14-day periods with weekly segmentation and real Meta ad IDs
+- **Enhanced Parsing**: 100% accurate ad name parsing with launch dates and product extraction
+- **Smart Filtering**: Removes ads with $0 spend and 0 purchases (keeps interesting edge cases)
+- **Dual Storage**: Original platform ad names + cleaned parsed versions
+- **Real-time Dashboards**: React frontend with comprehensive filtering and analytics
+- **Campaign Categorization**: Advanced categorization by product lines, colors, formats, and optimization types
 
 ## 🏗️ Architecture
 
 ### Backend (FastAPI + Python)
-- **Meta Ads API Integration**: Correct link_clicks extraction from actions array
-- **Supabase Database**: Campaign data storage with proper constraints
-- **Automatic Categorization**: Rule-based campaign categorization
-- **Monthly Reporting**: Aggregated monthly performance data
+- **Meta Ads API Integration**: Dual account support with enhanced parsing and real ad ID verification
+- **Supabase Database**: Ad-level data storage with weekly segmentation and dual ad name fields
+- **Advanced Parsing**: 100% accurate extraction of launch dates, products, colors, formats, and optimization types
+- **Smart Filtering**: Automatic removal of low-value ads ($0 spend + 0 purchases)
+- **Rate Limiting**: Production-ready API calls with proper retry logic
 
 ### Frontend (React + Vite)
 - **Modern Dashboard**: Clean interface with KPI cards and pivot tables
@@ -50,8 +54,11 @@ A complete automated reporting solution for House of Noa's Meta Ads and Google A
 
 ### Prerequisites
 - Node.js 18+
-- Python 3.9+
-- Meta Ads API credentials
+- Python 3.13+
+- Meta Ads API credentials (dual account support)
+- Google Ads API credentials
+- TikTok Marketing API credentials
+- OpenAI API key
 - Supabase account
 - n8n instance (optional)
 
@@ -76,9 +83,15 @@ pip install -r requirements.txt
 cp .env.example .env
 # Edit .env with your credentials:
 # META_ACCESS_TOKEN=your_meta_token
-# META_ACCOUNT_ID=your_account_id
+# META_ACCOUNT_ID=your_primary_account_id
+# META_ACCOUNT_ID_SECONDARY=your_secondary_account_id
+# META_APP_ID=your_app_id
+# META_APP_SECRET=your_app_secret
 # SUPABASE_URL=your_supabase_url
 # SUPABASE_SERVICE_KEY=your_service_key
+# OPENAI_API_KEY=your_openai_key
+# GOOGLE_ADS_DEVELOPER_TOKEN=your_google_token
+# TIKTOK_ACCESS_TOKEN=your_tiktok_token
 ```
 
 4. **Database Setup**
@@ -255,27 +268,44 @@ Automatic categorization rules:
 ## 🔐 Environment Variables
 
 ```env
-# Meta Ads API
+# Meta Ads API (Dual Account Support)
+META_APP_ID=1459737788539040
+META_APP_SECRET=30d048bf9f62385947e256245ca7d713
+META_ACCOUNT_ID=12838773
+META_ACCOUNT_ID_SECONDARY=728880056795187
 META_ACCESS_TOKEN=your_long_lived_token
-META_ACCOUNT_ID=your_ad_account_id
-META_APP_ID=your_app_id
-META_APP_SECRET=your_app_secret
 
 # Google Ads API
-GOOGLE_ADS_DEVELOPER_TOKEN=your_developer_token
-GOOGLE_ADS_CUSTOMER_ID=1234567890
-GOOGLE_OAUTH_CLIENT_ID=your_oauth_client_id.googleusercontent.com
-GOOGLE_OAUTH_CLIENT_SECRET=your_oauth_client_secret
+GOOGLE_ADS_DEVELOPER_TOKEN=-gJOMMcQIcQBxKuaUd0FhA
+GOOGLE_ADS_CUSTOMER_ID=9860652386
+GOOGLE_ADS_LOGIN_CUSTOMER_ID=2301612041
+GOOGLE_OAUTH_CLIENT_ID=1052692890180-r6co7k2h8un9v2bp9pi9saj670atkv7h.apps.googleusercontent.com
+GOOGLE_OAUTH_CLIENT_SECRET=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
 GOOGLE_OAUTH_REFRESH_TOKEN=your_refresh_token
-GOOGLE_ADS_LOGIN_CUSTOMER_ID=your_manager_account_id  # Optional
+
+# TikTok Marketing API
+TIKTOK_APP_ID=7538619599563161616
+TIKTOK_APP_SECRET=51c35c7f4f089c33d793f709abc88bba293f6c83
+TIKTOK_ACCESS_TOKEN=a3d1496268b35f9ad9a6f0d9d4492ab35d4c0bea
+TIKTOK_ADVERTISER_ID=6961828676572839938
+TIKTOK_SANDBOX_MODE=false
+
+# OpenAI API
+OPENAI_API_KEY=your_openai_api_key
 
 # Supabase Database
-SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_URL=https://pncdozcbrdmulkylazmd.supabase.co
 SUPABASE_SERVICE_KEY=your_service_role_key
 
-# Application
-DEBUG_MODE=false
-PORT=8007
+# n8n Integration
+N8N_WEBHOOK_URL=your_n8n_webhook_url
+
+# Application Settings
+APP_ENV=development
+DEBUG_MODE=true
+LOG_LEVEL=INFO
+FRONTEND_URL=http://localhost:3007
+BACKEND_URL=http://localhost:8007
 ```
 
 ## 🚀 Google Ads API Setup

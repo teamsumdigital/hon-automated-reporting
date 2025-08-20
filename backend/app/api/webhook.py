@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from typing import Optional, Dict, Any
 from datetime import date
+import os
 from loguru import logger
 from ..services.reporting import ReportingService
 
@@ -49,6 +50,15 @@ async def handle_n8n_webhook(
                 "result": result
             }
         
+        elif payload.trigger == "sync_14_day_ad_data":
+            # New 14-day ad-level sync with enhanced parsing
+            background_tasks.add_task(sync_14_day_ad_data_background, payload.metadata)
+            return {
+                "status": "accepted",
+                "message": "14-day ad-level sync initiated",
+                "target": "ad_level_data_with_parsing"
+            }
+        
         elif payload.trigger == "test":
             return {
                 "status": "success",
@@ -83,6 +93,123 @@ async def sync_meta_data_background(target_date: Optional[date], metadata: Optio
     except Exception as e:
         logger.error(f"Error in background sync: {e}")
 
+async def sync_14_day_ad_data_background(metadata: Optional[Dict[str, Any]]):
+    """
+    Background task for syncing 14-day ad-level data with enhanced parsing
+    """
+    try:
+        logger.info("Starting 14-day ad-level data sync with enhanced parsing")
+        
+        from ..services.meta_ad_level_service import MetaAdLevelService
+        from supabase import create_client
+        
+        # Initialize services
+        meta_service = MetaAdLevelService()
+        supabase_url = os.getenv('SUPABASE_URL')
+        supabase_key = os.getenv('SUPABASE_SERVICE_KEY')
+        supabase = create_client(supabase_url, supabase_key)
+        
+        # Fetch 14-day ad data with weekly segmentation
+        logger.info("📊 Fetching 14-day data with weekly segments...")
+        real_ad_data = meta_service.get_last_14_days_ad_data()
+        
+        if not real_ad_data:
+            logger.warning("⚠️ No ad data found")
+            return
+        
+        logger.info(f"✅ Retrieved {len(real_ad_data)} ad records")
+        
+        # Filter out ads with $0 spend AND 0 purchases
+        filtered_ad_data = []
+        zero_spend_zero_purchase_count = 0
+        zero_spend_with_purchases_count = 0
+        
+        for ad in real_ad_data:
+            spend = ad.get('amount_spent_usd', 0)
+            purchases = ad.get('purchases', 0)
+            
+            if spend == 0 and purchases == 0:
+                zero_spend_zero_purchase_count += 1
+                continue
+            elif spend == 0 and purchases > 0:
+                zero_spend_with_purchases_count += 1
+                filtered_ad_data.append(ad)
+            else:
+                filtered_ad_data.append(ad)
+        
+        logger.info(f"🔍 Filtered out {zero_spend_zero_purchase_count} ads with $0 spend + 0 purchases")
+        logger.info(f"💡 Kept {zero_spend_with_purchases_count} interesting cases ($0 spend + purchases)")
+        logger.info(f"✅ Final ads to insert: {len(filtered_ad_data)}")
+        
+        if not filtered_ad_data:
+            logger.warning("⚠️ No ads remaining after filtering")
+            return
+        
+        # Clear existing data
+        logger.info("🧹 Clearing existing ad data...")
+        try:
+            supabase.table('meta_ad_data').delete().gt('id', 0).execute()
+            logger.info("✅ Cleared existing data")
+        except Exception as e:
+            logger.info("ℹ️ Database already empty or clear operation not needed")
+        
+        # Prepare and insert data
+        insert_data = []
+        for ad in filtered_ad_data:
+            insert_record = {
+                'ad_id': ad['ad_id'],
+                'in_platform_ad_name': ad.get('original_ad_name', ad['ad_name']),
+                'ad_name': ad['ad_name'],
+                'campaign_name': ad['campaign_name'],
+                'reporting_starts': ad['reporting_starts'].isoformat(),
+                'reporting_ends': ad['reporting_ends'].isoformat(),
+                'launch_date': ad['launch_date'].isoformat() if ad['launch_date'] else None,
+                'days_live': ad['days_live'],
+                'category': ad['category'],
+                'product': ad['product'],
+                'color': ad['color'],
+                'content_type': ad['content_type'],
+                'handle': ad['handle'],
+                'format': ad['format'],
+                'campaign_optimization': ad['campaign_optimization'],
+                'amount_spent_usd': ad['amount_spent_usd'],
+                'purchases': ad['purchases'],
+                'purchases_conversion_value': ad['purchases_conversion_value'],
+                'impressions': ad['impressions'],
+                'link_clicks': ad['link_clicks']
+            }
+            insert_data.append(insert_record)
+        
+        # Insert in batches
+        batch_size = 100
+        total_inserted = 0
+        
+        for i in range(0, len(insert_data), batch_size):
+            batch = insert_data[i:i + batch_size]
+            batch_num = i // batch_size + 1
+            
+            logger.info(f"📥 Inserting batch {batch_num} ({len(batch)} records)...")
+            result = supabase.table('meta_ad_data').insert(batch).execute()
+            
+            if result.data:
+                total_inserted += len(result.data)
+                logger.info(f"✅ Batch {batch_num} inserted: {len(result.data)} records")
+        
+        # Calculate summary
+        total_spend = sum(ad['amount_spent_usd'] for ad in filtered_ad_data)
+        total_purchases = sum(ad['purchases'] for ad in filtered_ad_data)
+        total_revenue = sum(ad['purchases_conversion_value'] for ad in filtered_ad_data)
+        
+        logger.info(f"🎉 14-day ad sync completed successfully!")
+        logger.info(f"📊 Total inserted: {total_inserted} ad records")
+        logger.info(f"💰 Total spend: ${total_spend:,.2f}")
+        logger.info(f"🛒 Total purchases: {total_purchases}")
+        logger.info(f"💵 Total revenue: ${total_revenue:,.2f}")
+        
+    except Exception as e:
+        logger.error(f"❌ Error in 14-day ad sync: {e}")
+        raise
+
 @router.post("/test")
 async def test_webhook():
     """
@@ -108,6 +235,7 @@ async def get_webhook_status():
         "supported_triggers": [
             "scheduled_sync",
             "manual_sync", 
+            "sync_14_day_ad_data",
             "test"
         ]
     }

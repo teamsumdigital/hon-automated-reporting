@@ -82,6 +82,8 @@ async def root():
                 "summary": "/api/meta-ad-reports/summary",
                 "filters": "/api/meta-ad-reports/filters",
                 "sync_14_days": "/api/meta-ad-reports/sync-14-days",
+                "update_status": "/api/meta-ad-reports/update-status",
+                "status_counts": "/api/meta-ad-reports/status-counts",
                 "test": "/api/meta-ad-reports/test-connection"
             },
             "webhook": "/api/webhook/n8n-trigger"

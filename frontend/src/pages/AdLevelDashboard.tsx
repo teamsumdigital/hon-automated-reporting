@@ -425,35 +425,33 @@ const AdLevelDashboard: React.FC = () => {
 
           {/* Table */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <div className="flex items-start justify-between">
+            <div className="px-4 py-3 border-b border-gray-200">
+              <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-900">Ad-Level Performance</h2>
-                  <p className="text-sm text-gray-500 mt-1">
+                  <h2 className="text-base font-semibold text-gray-900">Ad-Level Performance</h2>
+                  <p className="text-xs text-gray-500">
                     {adData.length} ads • Click to expand weekly breakdown
                   </p>
                 </div>
                 
                 {/* Color Key */}
-                <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-                  <h4 className="text-sm font-medium text-gray-700 mb-3">Key</h4>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-3 h-3 bg-red-100 rounded"></div>
-                      <span className="text-xs text-gray-700">Paused</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-3 h-3 bg-yellow-100 rounded"></div>
-                      <span className="text-xs text-gray-700">Considering Pausing or Iterating</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-3 h-3 bg-green-100 rounded"></div>
-                      <span className="text-xs text-gray-700">Possible Winner</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-3 h-3 bg-gray-100 rounded"></div>
-                      <span className="text-xs text-gray-700">Paused last week</span>
-                    </div>
+                <div className="flex items-center space-x-4">
+                  <span className="text-xs font-medium text-gray-700">Key:</span>
+                  <div className="flex items-center space-x-1">
+                    <div className="w-2 h-2 bg-red-100 rounded"></div>
+                    <span className="text-xs text-gray-700">Paused</span>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <div className="w-2 h-2 bg-yellow-100 rounded"></div>
+                    <span className="text-xs text-gray-700">Considering</span>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <div className="w-2 h-2 bg-green-100 rounded"></div>
+                    <span className="text-xs text-gray-700">Winner</span>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <div className="w-2 h-2 bg-gray-100 rounded"></div>
+                    <span className="text-xs text-gray-700">Paused last week</span>
                   </div>
                 </div>
               </div>

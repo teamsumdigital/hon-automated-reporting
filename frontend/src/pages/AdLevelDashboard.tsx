@@ -207,18 +207,18 @@ const AdLevelDashboard: React.FC = () => {
     return statusCycle[nextIndex];
   };
 
-  const getStatusColor = (status: string | null | undefined): string => {
+  const getRowColorClass = (status: string | null | undefined): string => {
     switch (status) {
       case 'winner':
-        return 'bg-green-500';
+        return 'bg-green-50 hover:bg-green-100 border-l-4 border-green-500';
       case 'considering':
-        return 'bg-yellow-500';
+        return 'bg-yellow-50 hover:bg-yellow-100 border-l-4 border-yellow-500';
       case 'paused':
-        return 'bg-red-500';
+        return 'bg-red-50 hover:bg-red-100 border-l-4 border-red-500';
       case 'paused_last_week':
-        return 'bg-gray-500';
+        return 'bg-gray-50 hover:bg-gray-100 border-l-4 border-gray-500';
       default:
-        return 'bg-gray-200 border border-gray-300';
+        return 'hover:bg-gray-50';
     }
   };
 
@@ -415,9 +415,6 @@ const AdLevelDashboard: React.FC = () => {
                       <span className="text-xs text-gray-700">Paused last week</span>
                     </div>
                   </div>
-                  <p className="text-xs text-gray-500 mt-2 text-center">
-                    Click on any row to cycle through colors
-                  </p>
                 </div>
               </div>
             </div>
@@ -459,7 +456,8 @@ const AdLevelDashboard: React.FC = () => {
                     rows.push(
                       <tr 
                         key={ad.ad_name} 
-                        className="hover:bg-gray-50 transition-colors"
+                        className={`transition-colors cursor-pointer ${getRowColorClass(ad.status)}`}
+                        onClick={() => handleRowClick(ad.ad_name, ad.status)}
                       >
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center space-x-3">
@@ -474,17 +472,6 @@ const AdLevelDashboard: React.FC = () => {
                                 <ChevronDownIcon className="w-4 h-4 text-gray-600" /> : 
                                 <ChevronRightIcon className="w-4 h-4 text-gray-600" />
                               }
-                            </button>
-                            
-                            {/* Status Color Rectangle */}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleRowClick(ad.ad_name, ad.status);
-                              }}
-                              className={`w-4 h-8 rounded-sm transition-all duration-200 hover:scale-110 hover:shadow-md ${getStatusColor(ad.status)}`}
-                              title={`Status: ${ad.status || 'None'} • Click to cycle colors`}
-                            >
                             </button>
                             {ad.thumbnail_url ? (
                               <img 

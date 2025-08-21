@@ -51,11 +51,20 @@ async def handle_n8n_webhook(
             }
         
         elif payload.trigger == "sync_14_day_ad_data":
-            # New 14-day ad-level sync with enhanced parsing
-            background_tasks.add_task(sync_14_day_ad_data_background, payload.metadata)
+            # Immediate response - fire and forget
+            import asyncio
+            import threading
+            
+            # Start sync in separate thread to avoid blocking n8n
+            def start_sync():
+                asyncio.run(sync_14_day_ad_data_background(payload.metadata))
+            
+            thread = threading.Thread(target=start_sync, daemon=True)
+            thread.start()
+            
             return {
                 "status": "accepted",
-                "message": "14-day ad-level sync initiated",
+                "message": "14-day ad-level sync initiated (fire-and-forget)",
                 "target": "ad_level_data_with_parsing"
             }
         

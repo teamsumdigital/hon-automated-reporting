@@ -18,6 +18,9 @@ if not supabase_url or not supabase_key:
 
 supabase = create_client(supabase_url, supabase_key)
 
+# Simple in-memory lock to prevent concurrent syncs
+_sync_in_progress = False
+
 # Pydantic models for request bodies
 class StatusUpdateRequest(BaseModel):
     ad_name: str
@@ -43,7 +46,17 @@ def sync_last_14_days_ad_data(background_tasks: BackgroundTasks):
     """
     Sync ad-level data for the last 14 days with weekly segmentation (runs in background)
     """
+    global _sync_in_progress
+    
     try:
+        # Check if sync is already in progress
+        if _sync_in_progress:
+            return {
+                "status": "already_running",
+                "message": "14-day sync already in progress",
+                "note": "Please wait for the current sync to complete before starting another."
+            }
+        
         # Start the sync in the background to avoid timeout issues
         background_tasks.add_task(perform_14_day_sync)
         
@@ -61,7 +74,11 @@ def perform_14_day_sync():
     """
     Background task to perform the actual 14-day sync
     """
+    global _sync_in_progress
+    
     try:
+        # Set sync in progress flag
+        _sync_in_progress = True
         logger.info("🚀 Starting background 14-day ad data sync...")
         service = MetaAdLevelService()
         
@@ -156,6 +173,10 @@ def perform_14_day_sync():
     except Exception as e:
         logger.error(f"❌ Background sync failed: {e}")
         # Don't raise exception since this is a background task
+    finally:
+        # Always clear the sync in progress flag
+        _sync_in_progress = False
+        logger.info("🔓 Sync lock released")
 
 @router.get("/ad-data")
 def get_ad_level_data(

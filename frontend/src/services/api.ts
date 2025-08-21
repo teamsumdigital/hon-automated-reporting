@@ -243,6 +243,27 @@ export const apiClient = {
     const response = await api.post('/api/meta-ad-reports/sync-14-days');
     return response.data;
   },
+
+  // Status management for ad-level dashboard
+  updateAdStatus: async (adName: string, status: string | null): Promise<any> => {
+    const response = await api.post('/api/meta-ad-reports/update-status', {
+      ad_name: adName,
+      status: status
+    });
+    return response.data;
+  },
+
+  getStatusCounts: async (): Promise<{
+    winner: number;
+    considering: number;
+    paused: number;
+    paused_last_week: number;
+    no_status: number;
+    total_ads: number;
+  }> => {
+    const response = await api.get('/api/meta-ad-reports/status-counts');
+    return response.data;
+  },
 };
 
 export default api;

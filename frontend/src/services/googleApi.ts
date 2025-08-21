@@ -1,6 +1,9 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'https://hon-automated-reporting.onrender.com';
+// Environment-based API URL
+const API_BASE_URL = import.meta.env.DEV 
+  ? 'http://localhost:8007' 
+  : 'https://hon-automated-reporting.onrender.com';
 
 // Google Ads Data Types (mirroring backend models)
 export interface GoogleCampaignData {

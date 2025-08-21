@@ -81,8 +81,10 @@ class TikTokApiClient {
   private baseUrl: string;
 
   constructor() {
-    // Use environment variable or default to port 8007
-    this.baseUrl = 'https://hon-automated-reporting.onrender.com';
+    // Environment-based API URL
+    this.baseUrl = import.meta.env.DEV 
+      ? 'http://localhost:8007' 
+      : 'https://hon-automated-reporting.onrender.com';
   }
 
   private async request<T>(endpoint: string, options?: RequestInit): Promise<T> {

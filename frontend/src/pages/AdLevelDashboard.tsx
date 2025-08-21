@@ -199,6 +199,49 @@ const AdLevelDashboard: React.FC = () => {
     }
   };
 
+  // Status management for color coding
+  const getNextStatus = (currentStatus: string | null | undefined): string | null => {
+    const statusCycle = [null, 'winner', 'considering', 'paused', 'paused_last_week'];
+    const currentIndex = statusCycle.indexOf(currentStatus || null);
+    const nextIndex = (currentIndex + 1) % statusCycle.length;
+    return statusCycle[nextIndex];
+  };
+
+  const getRowColorClass = (status: string | null | undefined): string => {
+    switch (status) {
+      case 'winner':
+        return 'bg-green-50 hover:bg-green-100 border-l-4 border-green-500';
+      case 'considering':
+        return 'bg-yellow-50 hover:bg-yellow-100 border-l-4 border-yellow-500';
+      case 'paused':
+        return 'bg-red-50 hover:bg-red-100 border-l-4 border-red-500';
+      case 'paused_last_week':
+        return 'bg-gray-50 hover:bg-gray-100 border-l-4 border-gray-500';
+      default:
+        return 'hover:bg-gray-50';
+    }
+  };
+
+  const handleRowClick = async (adName: string, currentStatus: string | null | undefined) => {
+    const nextStatus = getNextStatus(currentStatus);
+    
+    try {
+      await apiClient.updateAdStatus(adName, nextStatus);
+      
+      // Update local state immediately for responsive UI
+      setAdData(prevData => 
+        prevData.map(ad => 
+          ad.ad_name === adName 
+            ? { ...ad, status: nextStatus }
+            : ad
+        )
+      );
+    } catch (error) {
+      console.error('Failed to update ad status:', error);
+      // Could add toast notification here
+    }
+  };
+
   const sortedAdData = React.useMemo(() => {
     if (!sortColumn) return adData;
 
@@ -378,11 +421,18 @@ const AdLevelDashboard: React.FC = () => {
                     
                     // Main ad row
                     rows.push(
-                      <tr key={ad.ad_name} className="hover:bg-gray-50 transition-colors">
+                      <tr 
+                        key={ad.ad_name} 
+                        className={`transition-colors cursor-pointer ${getRowColorClass(ad.status)}`}
+                        onClick={() => handleRowClick(ad.ad_name, ad.status)}
+                      >
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center space-x-3">
                             <button
-                              onClick={() => toggleAdExpansion(ad.ad_name)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleAdExpansion(ad.ad_name);
+                              }}
                               className="flex items-center justify-center w-6 h-6 rounded hover:bg-gray-200 transition-colors"
                             >
                               {isExpanded ? 
@@ -495,6 +545,31 @@ const AdLevelDashboard: React.FC = () => {
             {/* Scrollable Content */}
             <div className="flex-1 overflow-y-auto">
               <div className="p-6 space-y-8">
+                {/* Color Key Legend */}
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-3">Key</h4>
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-4 h-4 bg-red-500 rounded"></div>
+                      <span className="text-sm text-gray-700">Paused</span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <div className="w-4 h-4 bg-yellow-500 rounded"></div>
+                      <span className="text-sm text-gray-700">Considering Pausing or Iterating</span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <div className="w-4 h-4 bg-green-500 rounded"></div>
+                      <span className="text-sm text-gray-700">Possible Winner</span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <div className="w-4 h-4 bg-gray-500 rounded"></div>
+                      <span className="text-sm text-gray-700">Paused last week</span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-3">
+                    Click on any row to cycle through colors
+                  </p>
+                </div>
                 {/* Category Filter */}
                 {filterOptions?.categories && (
                   <div>

@@ -94,11 +94,15 @@ const ModernDashboard: React.FC = () => {
   }, [selectedCategories]);
 
   const fetchData = () => {
+    const API_BASE_URL = import.meta.env.DEV 
+      ? 'http://localhost:8007' 
+      : 'https://hon-automated-reporting.onrender.com';
+    
     const categoryParams = selectedCategories.length > 0 
       ? `?categories=${selectedCategories.join(',')}` 
       : '';
     
-    fetch(`https://hon-automated-reporting.onrender.com/api/reports/monthly${categoryParams}`)
+    fetch(`${API_BASE_URL}/api/reports/monthly${categoryParams}`)
       .then(response => {
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);

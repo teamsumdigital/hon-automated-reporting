@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from datetime import date, datetime, timedelta
 from typing import List, Dict, Any, Optional
+from pydantic import BaseModel
 from loguru import logger
 import os
 from supabase import create_client
@@ -16,6 +17,11 @@ if not supabase_url or not supabase_key:
     raise ValueError("SUPABASE_URL and SUPABASE_SERVICE_KEY must be set")
 
 supabase = create_client(supabase_url, supabase_key)
+
+# Pydantic models for request bodies
+class StatusUpdateRequest(BaseModel):
+    ad_name: str
+    status: Optional[str] = None  # 'winner', 'considering', 'paused', 'paused_last_week', or null for no color
 
 @router.get("/test-connection")
 def test_meta_ad_connection():
@@ -203,6 +209,7 @@ def get_ad_level_data(
                     'campaign_optimization': ad['campaign_optimization'],
                     'days_live': ad['days_live'],
                     'thumbnail_url': ad.get('thumbnail_url'),
+                    'status': ad.get('status'),
                     'weekly_periods': {},  # Use dict to prevent duplicates
                     'total_spend': 0,
                     'total_revenue': 0,
@@ -490,3 +497,107 @@ def get_weekly_ad_summary():
     except Exception as e:
         logger.error(f"Error fetching weekly ad summary: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch weekly summary: {str(e)}")
+
+@router.post("/update-status")
+def update_ad_status(request: StatusUpdateRequest):
+    """
+    Update the status (color state) for all records of a specific ad name
+    """
+    try:
+        # Validate status value
+        valid_statuses = ['winner', 'considering', 'paused', 'paused_last_week']
+        if request.status is not None and request.status not in valid_statuses:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Invalid status. Must be one of: {valid_statuses} or null"
+            )
+        
+        # Update all records for this ad name
+        result = supabase.table('meta_ad_data')\
+            .update({'status': request.status})\
+            .eq('ad_name', request.ad_name)\
+            .execute()
+        
+        if result.data:
+            logger.info(f"Updated status to '{request.status}' for {len(result.data)} records of ad '{request.ad_name}'")
+            return {
+                "status": "success",
+                "message": f"Updated status for ad '{request.ad_name}'",
+                "updated_records": len(result.data),
+                "new_status": request.status
+            }
+        else:
+            # Try to see if the ad exists
+            check_result = supabase.table('meta_ad_data')\
+                .select('ad_name')\
+                .eq('ad_name', request.ad_name)\
+                .limit(1)\
+                .execute()
+            
+            if not check_result.data:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Ad with name '{request.ad_name}' not found"
+                )
+            else:
+                raise HTTPException(
+                    status_code=500,
+                    detail="Failed to update ad status"
+                )
+        
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions
+    except Exception as e:
+        logger.error(f"Error updating ad status: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to update status: {str(e)}")
+
+@router.get("/status-counts")
+def get_status_counts():
+    """
+    Get counts of ads by status for dashboard statistics
+    """
+    try:
+        result = supabase.table('meta_ad_data')\
+            .select('ad_name, status')\
+            .execute()
+        
+        if not result.data:
+            return {
+                "winner": 0,
+                "considering": 0,
+                "paused": 0,
+                "paused_last_week": 0,
+                "no_status": 0,
+                "total_ads": 0
+            }
+        
+        # Group by unique ad names (since one ad can have multiple time periods)
+        unique_ads = {}
+        for record in result.data:
+            ad_name = record['ad_name']
+            status = record.get('status')
+            if ad_name not in unique_ads:
+                unique_ads[ad_name] = status
+        
+        # Count statuses
+        status_counts = {
+            "winner": 0,
+            "considering": 0,
+            "paused": 0,
+            "paused_last_week": 0,
+            "no_status": 0
+        }
+        
+        for status in unique_ads.values():
+            if status in status_counts:
+                status_counts[status] += 1
+            else:
+                status_counts["no_status"] += 1
+        
+        status_counts["total_ads"] = len(unique_ads)
+        
+        return status_counts
+        
+    except Exception as e:
+        logger.error(f"Error fetching status counts: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch status counts: {str(e)}")

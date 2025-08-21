@@ -438,19 +438,19 @@ const AdLevelDashboard: React.FC = () => {
                 <div className="flex items-center space-x-4">
                   <span className="text-xs font-medium text-gray-700">Key:</span>
                   <div className="flex items-center space-x-1">
-                    <div className="w-2 h-2 bg-red-100 rounded"></div>
-                    <span className="text-xs text-gray-700">Paused</span>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <div className="w-2 h-2 bg-yellow-100 rounded"></div>
-                    <span className="text-xs text-gray-700">Considering</span>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <div className="w-2 h-2 bg-green-100 rounded"></div>
+                    <div className="w-2 h-2 bg-green-500 rounded"></div>
                     <span className="text-xs text-gray-700">Winner</span>
                   </div>
                   <div className="flex items-center space-x-1">
-                    <div className="w-2 h-2 bg-gray-100 rounded"></div>
+                    <div className="w-2 h-2 bg-yellow-500 rounded"></div>
+                    <span className="text-xs text-gray-700">Considering</span>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <div className="w-2 h-2 bg-red-500 rounded"></div>
+                    <span className="text-xs text-gray-700">Paused</span>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <div className="w-2 h-2 bg-gray-500 rounded"></div>
                     <span className="text-xs text-gray-700">Paused last week</span>
                   </div>
                 </div>

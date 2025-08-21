@@ -39,24 +39,44 @@ def test_meta_ad_connection():
         raise HTTPException(status_code=500, detail=f"Connection test failed: {str(e)}")
 
 @router.post("/sync-14-days")
-def sync_last_14_days_ad_data():
+def sync_last_14_days_ad_data(background_tasks: BackgroundTasks):
     """
-    Sync ad-level data for the last 14 days with weekly segmentation
+    Sync ad-level data for the last 14 days with weekly segmentation (runs in background)
     """
     try:
+        # Start the sync in the background to avoid timeout issues
+        background_tasks.add_task(perform_14_day_sync)
+        
+        return {
+            "status": "success",
+            "message": "14-day sync started in background",
+            "note": "This process may take 5-10 minutes to complete. Check logs for progress."
+        }
+        
+    except Exception as e:
+        logger.error(f"Error starting 14-day sync: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to start sync: {str(e)}")
+
+def perform_14_day_sync():
+    """
+    Background task to perform the actual 14-day sync
+    """
+    try:
+        logger.info("🚀 Starting background 14-day ad data sync...")
         service = MetaAdLevelService()
         
         # Get last 14 days of ad-level data
         ad_data = service.get_last_14_days_ad_data()
         
         if not ad_data:
-            return {"status": "success", "message": "No ad data found for the last 14 days", "ads_synced": 0}
+            logger.info("✅ Background sync completed - No ad data found for the last 14 days")
+            return
         
         # Clear existing data for the date range first
         end_date = date.today() - timedelta(days=1)
         start_date = end_date - timedelta(days=13)
         
-        logger.info(f"Clearing existing ad data from {start_date} to {end_date}")
+        logger.info(f"🧹 Clearing existing ad data from {start_date} to {end_date}")
         supabase.table('meta_ad_data').delete().gte('reporting_starts', start_date.isoformat()).lte('reporting_ends', end_date.isoformat()).execute()
         
         # Insert new data
@@ -90,17 +110,16 @@ def sync_last_14_days_ad_data():
         
         # Batch insert
         if insert_data:
+            logger.info(f"📊 Inserting {len(insert_data)} ad records...")
             result = supabase.table('meta_ad_data').insert(insert_data).execute()
             
             if result.data:
-                logger.info(f"Successfully inserted {len(result.data)} ad records")
+                logger.info(f"✅ Background sync completed successfully! Inserted {len(result.data)} ad records")
                 
-                # Return summary statistics
+                # Log summary statistics for debugging
                 total_spend = sum(ad['amount_spent_usd'] for ad in ad_data)
                 total_purchases = sum(ad['purchases'] for ad in ad_data)
                 total_revenue = sum(ad['purchases_conversion_value'] for ad in ad_data)
-                total_impressions = sum(ad['impressions'] for ad in ad_data)
-                total_clicks = sum(ad['link_clicks'] for ad in ad_data)
                 
                 # Group by week for summary
                 weekly_summary = {}
@@ -122,32 +141,21 @@ def sync_last_14_days_ad_data():
                     weekly_summary[week]['impressions'] += ad['impressions']
                     weekly_summary[week]['clicks'] += ad['link_clicks']
                 
-                return {
-                    "status": "success",
-                    "message": f"Successfully synced {len(result.data)} ad records for last 14 days",
-                    "date_range": {
-                        "start_date": start_date.isoformat(),
-                        "end_date": end_date.isoformat()
-                    },
-                    "summary": {
-                        "total_ads": len(result.data),
-                        "total_spend": round(total_spend, 2),
-                        "total_purchases": total_purchases,
-                        "total_revenue": round(total_revenue, 2),
-                        "total_impressions": total_impressions,
-                        "total_clicks": total_clicks,
-                        "average_roas": round(total_revenue / total_spend, 2) if total_spend > 0 else 0
-                    },
-                    "weekly_breakdown": weekly_summary
-                }
+                logger.info(f"📈 Sync summary: {len(result.data)} ads, ${round(total_spend, 2)} spend, ${round(total_revenue, 2)} revenue")
+                logger.info(f"🗓️ Weekly breakdown: {len(weekly_summary)} weeks of data")
+                
+                # Log each week for debugging momentum indicators
+                for week, stats in weekly_summary.items():
+                    logger.info(f"   Week {week}: {stats['ads_count']} ads, ${stats['spend']:.2f} spend, ${stats['revenue']:.2f} revenue")
+                
             else:
-                raise HTTPException(status_code=500, detail="Failed to insert ad data")
+                logger.error("❌ Background sync failed - Could not insert ad data")
         else:
-            return {"status": "success", "message": "No ad data to insert", "ads_synced": 0}
+            logger.info("✅ Background sync completed - No ad data to insert")
             
     except Exception as e:
-        logger.error(f"Error syncing 14-day ad data: {e}")
-        raise HTTPException(status_code=500, detail=f"Sync failed: {str(e)}")
+        logger.error(f"❌ Background sync failed: {e}")
+        # Don't raise exception since this is a background task
 
 @router.get("/ad-data")
 def get_ad_level_data(

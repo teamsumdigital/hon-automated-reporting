@@ -2,10 +2,11 @@ import React from 'react';
 import { 
   ChartBarIcon,
   ChartPieIcon,
-  PlayIcon as VideoIcon 
+  PlayIcon as VideoIcon,
+  RectangleStackIcon
 } from '@heroicons/react/24/outline';
 
-export type TabType = 'meta' | 'google' | 'tiktok';
+export type TabType = 'meta' | 'google' | 'tiktok' | 'ad-level';
 
 interface Tab {
   id: TabType;
@@ -42,6 +43,13 @@ const tabs: Tab[] = [
     icon: VideoIcon,
     color: 'pink',
     description: 'TikTok advertising data'
+  },
+  {
+    id: 'ad-level',
+    label: 'Ad Level',
+    icon: RectangleStackIcon,
+    color: 'purple',
+    description: 'Individual ad performance with thumbnails and weekly breakdown'
   }
 ];
 
@@ -61,7 +69,8 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
       const activeColors = {
         blue: 'text-blue-600 border-blue-500 bg-blue-50',
         green: 'text-green-600 border-green-500 bg-green-50',
-        pink: 'text-pink-600 border-pink-500 bg-pink-50'
+        pink: 'text-pink-600 border-pink-500 bg-pink-50',
+        purple: 'text-purple-600 border-purple-500 bg-purple-50'
       };
       return `${baseClasses} ${activeColors[tab.color as keyof typeof activeColors]}`;
     }
@@ -93,7 +102,8 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
                   className={`
                     absolute bottom-0 left-0 right-0 h-0.5 
                     ${tab.color === 'blue' ? 'bg-blue-500' : 
-                      tab.color === 'green' ? 'bg-green-500' : 'bg-pink-500'}
+                      tab.color === 'green' ? 'bg-green-500' : 
+                      tab.color === 'pink' ? 'bg-pink-500' : 'bg-purple-500'}
                   `} 
                 />
               )}

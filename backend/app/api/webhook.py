@@ -176,7 +176,8 @@ async def sync_14_day_ad_data_background(metadata: Optional[Dict[str, Any]]):
                 'purchases': ad['purchases'],
                 'purchases_conversion_value': ad['purchases_conversion_value'],
                 'impressions': ad['impressions'],
-                'link_clicks': ad['link_clicks']
+                'link_clicks': ad['link_clicks'],
+                'thumbnail_url': ad.get('thumbnail_url')
             }
             insert_data.append(insert_record)
         

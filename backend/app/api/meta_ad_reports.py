@@ -77,7 +77,8 @@ def sync_last_14_days_ad_data():
                 'purchases': ad['purchases'],
                 'purchases_conversion_value': ad['purchases_conversion_value'],
                 'impressions': ad['impressions'],
-                'link_clicks': ad['link_clicks']
+                'link_clicks': ad['link_clicks'],
+                'thumbnail_url': ad.get('thumbnail_url')
             }
             insert_data.append(insert_record)
         
@@ -153,7 +154,11 @@ def get_ad_level_data(
     Get ad-level data grouped by ad name with weekly periods
     """
     try:
-        query = supabase.table('meta_ad_data').select('*')
+        # Only get data from the last 14 days
+        from datetime import datetime, timedelta
+        cutoff_date = (datetime.now() - timedelta(days=14)).strftime('%Y-%m-%d')
+        
+        query = supabase.table('meta_ad_data').select('*').gte('reporting_starts', cutoff_date)
         
         # Apply filters
         if categories:
@@ -181,11 +186,12 @@ def get_ad_level_data(
                 "grouped_ads": []
             }
         
-        # Group data by ad name
+        # Group data by ad name and deduplicate by date range
         grouped_data = {}
         
         for ad in result.data:
             ad_name = ad['ad_name']
+            date_key = f"{ad['reporting_starts']}_{ad['reporting_ends']}"
             
             if ad_name not in grouped_data:
                 grouped_data[ad_name] = {
@@ -196,7 +202,8 @@ def get_ad_level_data(
                     'format': ad['format'],
                     'campaign_optimization': ad['campaign_optimization'],
                     'days_live': ad['days_live'],
-                    'weekly_periods': [],
+                    'thumbnail_url': ad.get('thumbnail_url'),
+                    'weekly_periods': {},  # Use dict to prevent duplicates
                     'total_spend': 0,
                     'total_revenue': 0,
                     'total_purchases': 0,
@@ -204,26 +211,48 @@ def get_ad_level_data(
                     'total_impressions': 0
                 }
             
-            # Add weekly period data
-            grouped_data[ad_name]['weekly_periods'].append({
-                'reporting_starts': ad['reporting_starts'],
-                'reporting_ends': ad['reporting_ends'],
-                'spend': ad['amount_spent_usd'],
-                'revenue': ad['purchases_conversion_value'],
-                'purchases': ad['purchases'],
-                'roas': round(ad['purchases_conversion_value'] / ad['amount_spent_usd'], 2) if ad['amount_spent_usd'] > 0 else 0,
-                'cpa': round(ad['amount_spent_usd'] / ad['purchases'], 2) if ad['purchases'] > 0 else 0,
-                'cpc': round(ad['amount_spent_usd'] / ad['link_clicks'], 2) if ad['link_clicks'] > 0 else 0,
-                'clicks': ad['link_clicks'],
-                'impressions': ad['impressions']
-            })
-            
-            # Add to totals
-            grouped_data[ad_name]['total_spend'] += ad['amount_spent_usd']
-            grouped_data[ad_name]['total_revenue'] += ad['purchases_conversion_value']
-            grouped_data[ad_name]['total_purchases'] += ad['purchases']
-            grouped_data[ad_name]['total_clicks'] += ad['link_clicks']
-            grouped_data[ad_name]['total_impressions'] += ad['impressions']
+            # Check if this date period already exists for this ad
+            if date_key not in grouped_data[ad_name]['weekly_periods']:
+                # Add weekly period data (first occurrence)
+                grouped_data[ad_name]['weekly_periods'][date_key] = {
+                    'reporting_starts': ad['reporting_starts'],
+                    'reporting_ends': ad['reporting_ends'],
+                    'spend': ad['amount_spent_usd'],
+                    'revenue': ad['purchases_conversion_value'],
+                    'purchases': ad['purchases'],
+                    'roas': round(ad['purchases_conversion_value'] / ad['amount_spent_usd'], 2) if ad['amount_spent_usd'] > 0 else 0,
+                    'cpa': round(ad['amount_spent_usd'] / ad['purchases'], 2) if ad['purchases'] > 0 else 0,
+                    'cpc': round(ad['amount_spent_usd'] / ad['link_clicks'], 2) if ad['link_clicks'] > 0 else 0,
+                    'clicks': ad['link_clicks'],
+                    'impressions': ad['impressions']
+                }
+                
+                # Add to totals (only for unique periods)
+                grouped_data[ad_name]['total_spend'] += ad['amount_spent_usd']
+                grouped_data[ad_name]['total_revenue'] += ad['purchases_conversion_value']
+                grouped_data[ad_name]['total_purchases'] += ad['purchases']
+                grouped_data[ad_name]['total_clicks'] += ad['link_clicks']
+                grouped_data[ad_name]['total_impressions'] += ad['impressions']
+            else:
+                # Duplicate found - aggregate the metrics
+                existing = grouped_data[ad_name]['weekly_periods'][date_key]
+                existing['spend'] += ad['amount_spent_usd']
+                existing['revenue'] += ad['purchases_conversion_value']
+                existing['purchases'] += ad['purchases']
+                existing['clicks'] += ad['link_clicks']
+                existing['impressions'] += ad['impressions']
+                
+                # Recalculate derived metrics
+                existing['roas'] = round(existing['revenue'] / existing['spend'], 2) if existing['spend'] > 0 else 0
+                existing['cpa'] = round(existing['spend'] / existing['purchases'], 2) if existing['purchases'] > 0 else 0
+                existing['cpc'] = round(existing['spend'] / existing['clicks'], 2) if existing['clicks'] > 0 else 0
+                
+                # Add to totals
+                grouped_data[ad_name]['total_spend'] += ad['amount_spent_usd']
+                grouped_data[ad_name]['total_revenue'] += ad['purchases_conversion_value']
+                grouped_data[ad_name]['total_purchases'] += ad['purchases']
+                grouped_data[ad_name]['total_clicks'] += ad['link_clicks']
+                grouped_data[ad_name]['total_impressions'] += ad['impressions']
         
         # Calculate aggregate metrics for each ad
         for ad_data in grouped_data.values():
@@ -239,8 +268,10 @@ def get_ad_level_data(
             else:
                 ad_data['total_cpc'] = 0
             
-            # Sort weekly periods (older week first)
+            # Convert weekly_periods dict back to list, sort (older week first) and keep only the most recent 2
+            ad_data['weekly_periods'] = list(ad_data['weekly_periods'].values())
             ad_data['weekly_periods'].sort(key=lambda x: x['reporting_starts'])
+            ad_data['weekly_periods'] = ad_data['weekly_periods'][-2:]  # Keep only the last 2 periods
         
         # Convert to list and sort by total spend (highest first)
         grouped_ads = sorted(grouped_data.values(), key=lambda x: x['total_spend'], reverse=True)

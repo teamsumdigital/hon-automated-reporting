@@ -3,12 +3,13 @@ import TabNavigation, { TabType } from '../components/TabNavigation';
 import ModernDashboard from './ModernDashboard';
 import GoogleDashboard from './GoogleDashboard';
 import TikTokDashboard from './TikTokDashboard';
+import AdLevelDashboard from './AdLevelDashboard';
 
 const MainDashboard: React.FC = () => {
   // Get the last active tab from localStorage, fallback to 'meta'
   const getInitialTab = (): TabType => {
     const savedTab = localStorage.getItem('activeTab');
-    if (savedTab && ['meta', 'google', 'tiktok'].includes(savedTab)) {
+    if (savedTab && ['meta', 'google', 'tiktok', 'ad-level'].includes(savedTab)) {
       return savedTab as TabType;
     }
     return 'meta';
@@ -43,6 +44,7 @@ const MainDashboard: React.FC = () => {
         {activeTab === 'meta' && <ModernDashboard />}
         {activeTab === 'google' && <GoogleDashboard />}
         {activeTab === 'tiktok' && <TikTokDashboard />}
+        {activeTab === 'ad-level' && <AdLevelDashboard />}
       </div>
     </div>
   );

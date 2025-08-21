@@ -21,6 +21,7 @@ export interface AdData {
   format: string;
   campaign_optimization: string;
   days_live: number;
+  thumbnail_url?: string;
   weekly_periods: WeeklyPeriod[];
   total_spend: number;
   total_revenue: number;

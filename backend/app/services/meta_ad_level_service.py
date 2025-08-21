@@ -6,6 +6,7 @@ from facebook_business.adobjects.adaccount import AdAccount
 from facebook_business.adobjects.campaign import Campaign
 from facebook_business.adobjects.ad import Ad
 from facebook_business.adobjects.adsinsights import AdsInsights
+from facebook_business.adobjects.adcreative import AdCreative
 from facebook_business.exceptions import FacebookRequestError
 from loguru import logger
 from decimal import Decimal
@@ -313,7 +314,29 @@ class MetaAdLevelService:
         
         logger.info(f"Fetching last 14 days of ad-level data from {start_date} to {end_date} (weekly segments)")
         
-        return self.get_ad_level_insights(start_date, end_date)
+        # Get ad insights data
+        ad_data = self.get_ad_level_insights(start_date, end_date)
+        
+        # Extract unique ad IDs and fetch thumbnails
+        ad_ids = list(set([ad['ad_id'] for ad in ad_data if ad.get('ad_id')]))
+        logger.info(f"🖼️ THUMBNAIL DEBUG: Found {len(ad_ids)} unique ad IDs from {len(ad_data)} ad records")
+        
+        if ad_ids:
+            logger.info(f"🖼️ Fetching thumbnails for {len(ad_ids)} unique ads")
+            logger.info(f"🖼️ First 5 ad IDs: {ad_ids[:5]}")
+            thumbnails = self.get_ad_thumbnails(ad_ids)
+            
+            # Add thumbnail URLs to ad data
+            for ad in ad_data:
+                ad_id = ad.get('ad_id')
+                if ad_id and ad_id in thumbnails:
+                    ad['thumbnail_url'] = thumbnails[ad_id]
+                else:
+                    ad['thumbnail_url'] = None
+        else:
+            logger.info("No ad IDs found, skipping thumbnail fetch")
+        
+        return ad_data
     
     def get_month_to_date_ad_data(self, target_date: Optional[date] = None) -> List[Dict[str, Any]]:
         """
@@ -354,3 +377,56 @@ class MetaAdLevelService:
         except Exception as e:
             logger.error(f"Ad-level service connection test failed: {e}")
             return False
+    
+    def get_ad_thumbnails(self, ad_ids: List[str]) -> Dict[str, str]:
+        """
+        Fetch thumbnail URLs for a list of ad IDs
+        Returns dict mapping ad_id to thumbnail_url
+        """
+        thumbnails = {}
+        
+        # Process in batches to avoid rate limits
+        batch_size = 10
+        for i in range(0, len(ad_ids), batch_size):
+            batch = ad_ids[i:i + batch_size]
+            
+            for ad_id in batch:
+                try:
+                    ad = Ad(ad_id)
+                    
+                    # Get ad creatives for this ad
+                    creatives = ad.get_ad_creatives(fields=[
+                        AdCreative.Field.thumbnail_url,
+                        AdCreative.Field.image_url,
+                        AdCreative.Field.object_story_spec
+                    ])
+                    
+                    if creatives and len(creatives) > 0:
+                        creative = creatives[0]  # Use first creative
+                        
+                        # Try thumbnail_url first, fallback to image_url
+                        thumbnail_url = creative.get('thumbnail_url')
+                        if not thumbnail_url:
+                            thumbnail_url = creative.get('image_url')
+                        
+                        # If still no URL, try extracting from object_story_spec
+                        if not thumbnail_url and 'object_story_spec' in creative:
+                            object_story = creative['object_story_spec']
+                            if 'link_data' in object_story and 'picture' in object_story['link_data']:
+                                thumbnail_url = object_story['link_data']['picture']
+                        
+                        if thumbnail_url:
+                            thumbnails[ad_id] = thumbnail_url
+                            logger.debug(f"Found thumbnail for ad {ad_id}: {thumbnail_url}")
+                        else:
+                            logger.debug(f"No thumbnail found for ad {ad_id}")
+                    else:
+                        logger.debug(f"No creatives found for ad {ad_id}")
+                        
+                except FacebookRequestError as e:
+                    logger.warning(f"Facebook API error fetching creative for ad {ad_id}: {e}")
+                except Exception as e:
+                    logger.warning(f"Error fetching creative for ad {ad_id}: {e}")
+        
+        logger.info(f"Retrieved {len(thumbnails)} thumbnails out of {len(ad_ids)} requested ads")
+        return thumbnails

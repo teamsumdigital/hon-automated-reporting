@@ -1,8 +1,12 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'https://hon-automated-reporting.onrender.com';
+// Environment-based API URL
+const API_BASE_URL = import.meta.env.DEV 
+  ? 'http://localhost:8007' 
+  : 'https://hon-automated-reporting.onrender.com';
+
 console.log('🚀 API_BASE_URL:', API_BASE_URL);
-console.log('🔧 HARDCODED URL ACTIVE - SHOULD CALL RENDER BACKEND');
+console.log(`🔧 ${import.meta.env.DEV ? 'DEVELOPMENT' : 'PRODUCTION'} MODE`);
 
 // Force immediate console output
 if (typeof window !== 'undefined') {

@@ -291,6 +291,47 @@ const AdLevelDashboard: React.FC = () => {
   const formatCurrency = (value: number) => `$${Math.round(value).toLocaleString()}`;
   const formatDecimal = (value: number, decimals: number = 2) => value.toFixed(decimals);
 
+  // Calculate week-over-week changes
+  const calculateWeekOverWeekChange = (ad: AdData) => {
+    if (!ad.weekly_periods || ad.weekly_periods.length < 2) {
+      return { spendChange: null, roasChange: null };
+    }
+
+    // Sort periods by date (older first)
+    const sortedPeriods = [...ad.weekly_periods].sort((a, b) => 
+      new Date(a.reporting_starts).getTime() - new Date(b.reporting_starts).getTime()
+    );
+
+    const olderWeek = sortedPeriods[0];
+    const newerWeek = sortedPeriods[1];
+
+    // Calculate percentage changes
+    const spendChange = olderWeek.spend > 0 
+      ? ((newerWeek.spend - olderWeek.spend) / olderWeek.spend) * 100 
+      : null;
+
+    const roasChange = olderWeek.roas > 0 
+      ? ((newerWeek.roas - olderWeek.roas) / olderWeek.roas) * 100 
+      : null;
+
+    return { spendChange, roasChange };
+  };
+
+  const formatChangeIndicator = (change: number | null, type: 'spend' | 'roas') => {
+    if (change === null || Math.abs(change) < 0.1) return null;
+
+    const isPositive = change > 0;
+    const colorClass = type === 'spend' 
+      ? (isPositive ? 'text-red-600' : 'text-green-600') // For spend, increase is bad (red), decrease is good (green)
+      : (isPositive ? 'text-green-600' : 'text-red-600'); // For ROAS, increase is good (green), decrease is bad (red)
+
+    return (
+      <span className={`text-xs font-medium ${colorClass} ml-1`}>
+        {isPositive ? '+' : ''}{change.toFixed(0)}%
+      </span>
+    );
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -496,10 +537,22 @@ const AdLevelDashboard: React.FC = () => {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-gray-900">
-                          {formatCurrency(ad.total_spend)}
+                          <div className="flex flex-col items-end">
+                            <span>{formatCurrency(ad.total_spend)}</span>
+                            {(() => {
+                              const changes = calculateWeekOverWeekChange(ad);
+                              return formatChangeIndicator(changes.spendChange, 'spend');
+                            })()}
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
-                          {formatDecimal(ad.total_roas)}
+                          <div className="flex flex-col items-end">
+                            <span>{formatDecimal(ad.total_roas)}</span>
+                            {(() => {
+                              const changes = calculateWeekOverWeekChange(ad);
+                              return formatChangeIndicator(changes.roasChange, 'roas');
+                            })()}
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
                           {formatCurrency(ad.total_cpa)}

@@ -223,10 +223,14 @@ const AdLevelDashboard: React.FC = () => {
   };
 
   const handleRowClick = async (adName: string, currentStatus: string | null | undefined) => {
+    console.log('🔄 Row clicked:', adName, 'Current status:', currentStatus);
     const nextStatus = getNextStatus(currentStatus);
+    console.log('🎯 Next status:', nextStatus);
     
     try {
-      await apiClient.updateAdStatus(adName, nextStatus);
+      console.log('📡 Calling updateAdStatus API...');
+      const result = await apiClient.updateAdStatus(adName, nextStatus);
+      console.log('✅ API result:', result);
       
       // Update local state immediately for responsive UI
       setAdData(prevData => 
@@ -236,8 +240,10 @@ const AdLevelDashboard: React.FC = () => {
             : ad
         )
       );
+      console.log('🔄 Local state updated');
     } catch (error) {
-      console.error('Failed to update ad status:', error);
+      console.error('❌ Failed to update ad status:', error);
+      console.error('Error details:', error.response?.data || error.message);
       // Could add toast notification here
     }
   };
@@ -380,10 +386,40 @@ const AdLevelDashboard: React.FC = () => {
           {/* Table */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">Ad-Level Performance</h2>
-              <p className="text-sm text-gray-500 mt-1">
-                {adData.length} ads • Click to expand weekly breakdown
-              </p>
+              <div className="flex items-start justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">Ad-Level Performance</h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {adData.length} ads • Click to expand weekly breakdown
+                  </p>
+                </div>
+                
+                {/* Color Key */}
+                <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+                  <h4 className="text-sm font-medium text-gray-700 mb-3">Key</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-3 h-3 bg-red-500 rounded"></div>
+                      <span className="text-xs text-gray-700">Paused</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-3 h-3 bg-yellow-500 rounded"></div>
+                      <span className="text-xs text-gray-700">Considering Pausing or Iterating</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-3 h-3 bg-green-500 rounded"></div>
+                      <span className="text-xs text-gray-700">Possible Winner</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-3 h-3 bg-gray-500 rounded"></div>
+                      <span className="text-xs text-gray-700">Paused last week</span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2 text-center">
+                    Click on any row to cycle through colors
+                  </p>
+                </div>
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -545,31 +581,6 @@ const AdLevelDashboard: React.FC = () => {
             {/* Scrollable Content */}
             <div className="flex-1 overflow-y-auto">
               <div className="p-6 space-y-8">
-                {/* Color Key Legend */}
-                <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-3">Key</h4>
-                  <div className="space-y-2">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-4 h-4 bg-red-500 rounded"></div>
-                      <span className="text-sm text-gray-700">Paused</span>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <div className="w-4 h-4 bg-yellow-500 rounded"></div>
-                      <span className="text-sm text-gray-700">Considering Pausing or Iterating</span>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <div className="w-4 h-4 bg-green-500 rounded"></div>
-                      <span className="text-sm text-gray-700">Possible Winner</span>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <div className="w-4 h-4 bg-gray-500 rounded"></div>
-                      <span className="text-sm text-gray-700">Paused last week</span>
-                    </div>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-3">
-                    Click on any row to cycle through colors
-                  </p>
-                </div>
                 {/* Category Filter */}
                 {filterOptions?.categories && (
                   <div>

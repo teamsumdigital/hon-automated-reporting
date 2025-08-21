@@ -8,6 +8,13 @@ from ..services.reporting import ReportingService
 
 router = APIRouter(prefix="/api/webhook", tags=["webhook"])
 
+# Global sync status tracking
+_sync_status = {
+    "in_progress": False,
+    "started_at": None,
+    "last_message": None
+}
+
 class N8NWebhookPayload(BaseModel):
     trigger: str  # "scheduled_sync", "manual_sync", etc.
     target_date: Optional[str] = None
@@ -106,7 +113,15 @@ async def sync_14_day_ad_data_background(metadata: Optional[Dict[str, Any]]):
     """
     Background task for syncing 14-day ad-level data with enhanced parsing
     """
+    global _sync_status
+    from datetime import datetime
+    
     try:
+        # Update sync status
+        _sync_status["in_progress"] = True
+        _sync_status["started_at"] = datetime.now().isoformat()
+        _sync_status["last_message"] = "Starting 14-day ad-level data sync"
+        
         logger.info("Starting 14-day ad-level data sync with enhanced parsing")
         
         from ..services.meta_ad_level_service import MetaAdLevelService
@@ -119,6 +134,7 @@ async def sync_14_day_ad_data_background(metadata: Optional[Dict[str, Any]]):
         supabase = create_client(supabase_url, supabase_key)
         
         # Fetch 14-day ad data with weekly segmentation
+        _sync_status["last_message"] = "Fetching 14-day data with weekly segments"
         logger.info("📊 Fetching 14-day data with weekly segments...")
         real_ad_data = meta_service.get_last_14_days_ad_data()
         
@@ -216,8 +232,14 @@ async def sync_14_day_ad_data_background(metadata: Optional[Dict[str, Any]]):
         logger.info(f"🛒 Total purchases: {total_purchases}")
         logger.info(f"💵 Total revenue: ${total_revenue:,.2f}")
         
+        # Update completion status
+        _sync_status["in_progress"] = False
+        _sync_status["last_message"] = f"Completed successfully - {total_inserted} records inserted"
+        
     except Exception as e:
         logger.error(f"❌ Error in 14-day ad sync: {e}")
+        _sync_status["in_progress"] = False
+        _sync_status["last_message"] = f"Failed: {str(e)}"
         raise
 
 @router.post("/test")
@@ -240,7 +262,8 @@ async def get_webhook_status():
         "status": "active",
         "endpoints": [
             "/api/webhook/n8n-trigger",
-            "/api/webhook/test"
+            "/api/webhook/test",
+            "/api/webhook/sync-status"
         ],
         "supported_triggers": [
             "scheduled_sync",
@@ -248,4 +271,16 @@ async def get_webhook_status():
             "sync_14_day_ad_data",
             "test"
         ]
+    }
+
+@router.get("/sync-status")
+async def get_sync_status():
+    """
+    Get current sync status for monitoring
+    """
+    return {
+        "sync_in_progress": _sync_status["in_progress"],
+        "started_at": _sync_status["started_at"],
+        "last_message": _sync_status["last_message"],
+        "timestamp": date.today().isoformat()
     }

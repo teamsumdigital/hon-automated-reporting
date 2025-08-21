@@ -293,7 +293,10 @@ const AdLevelDashboard: React.FC = () => {
 
   // Calculate week-over-week changes
   const calculateWeekOverWeekChange = (ad: AdData) => {
+    console.log('🔍 Calculating changes for:', ad.ad_name, 'Weekly periods:', ad.weekly_periods?.length);
+    
     if (!ad.weekly_periods || ad.weekly_periods.length < 2) {
+      console.log('❌ Not enough periods for', ad.ad_name, 'Length:', ad.weekly_periods?.length);
       return { spendChange: null, roasChange: null };
     }
 
@@ -305,6 +308,10 @@ const AdLevelDashboard: React.FC = () => {
     const olderWeek = sortedPeriods[0];
     const newerWeek = sortedPeriods[1];
 
+    console.log('📊 Comparing periods for', ad.ad_name);
+    console.log('  Older:', olderWeek.reporting_starts, 'Spend:', olderWeek.spend, 'ROAS:', olderWeek.roas);
+    console.log('  Newer:', newerWeek.reporting_starts, 'Spend:', newerWeek.spend, 'ROAS:', newerWeek.roas);
+
     // Calculate percentage changes
     const spendChange = olderWeek.spend > 0 
       ? ((newerWeek.spend - olderWeek.spend) / olderWeek.spend) * 100 
@@ -313,6 +320,8 @@ const AdLevelDashboard: React.FC = () => {
     const roasChange = olderWeek.roas > 0 
       ? ((newerWeek.roas - olderWeek.roas) / olderWeek.roas) * 100 
       : null;
+
+    console.log('📈 Changes calculated:', { spendChange, roasChange });
 
     return { spendChange, roasChange };
   };

@@ -210,13 +210,13 @@ const AdLevelDashboard: React.FC = () => {
   const getRowColorClass = (status: string | null | undefined): string => {
     switch (status) {
       case 'winner':
-        return 'bg-green-50 hover:bg-green-100 border-l-4 border-green-500';
+        return 'bg-green-100 hover:bg-green-200 border-l-4 border-green-500';
       case 'considering':
-        return 'bg-yellow-50 hover:bg-yellow-100 border-l-4 border-yellow-500';
+        return 'bg-yellow-100 hover:bg-yellow-200 border-l-4 border-yellow-500';
       case 'paused':
-        return 'bg-red-50 hover:bg-red-100 border-l-4 border-red-500';
+        return 'bg-red-100 hover:bg-red-200 border-l-4 border-red-500';
       case 'paused_last_week':
-        return 'bg-gray-50 hover:bg-gray-100 border-l-4 border-gray-500';
+        return 'bg-gray-100 hover:bg-gray-200 border-l-4 border-gray-500';
       default:
         return 'hover:bg-gray-50';
     }

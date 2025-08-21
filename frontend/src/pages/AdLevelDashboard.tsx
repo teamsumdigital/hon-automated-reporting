@@ -399,19 +399,19 @@ const AdLevelDashboard: React.FC = () => {
                   <h4 className="text-sm font-medium text-gray-700 mb-3">Key</h4>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="flex items-center space-x-2">
-                      <div className="w-3 h-3 bg-red-500 rounded"></div>
+                      <div className="w-3 h-3 bg-red-100 border border-red-500 rounded"></div>
                       <span className="text-xs text-gray-700">Paused</span>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <div className="w-3 h-3 bg-yellow-500 rounded"></div>
+                      <div className="w-3 h-3 bg-yellow-100 border border-yellow-500 rounded"></div>
                       <span className="text-xs text-gray-700">Considering Pausing or Iterating</span>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <div className="w-3 h-3 bg-green-500 rounded"></div>
+                      <div className="w-3 h-3 bg-green-100 border border-green-500 rounded"></div>
                       <span className="text-xs text-gray-700">Possible Winner</span>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <div className="w-3 h-3 bg-gray-500 rounded"></div>
+                      <div className="w-3 h-3 bg-gray-100 border border-gray-500 rounded"></div>
                       <span className="text-xs text-gray-700">Paused last week</span>
                     </div>
                   </div>

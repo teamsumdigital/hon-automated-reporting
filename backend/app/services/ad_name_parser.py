@@ -92,7 +92,8 @@ class AdNameParser:
             # Determine campaign optimization from campaign name
             result['campaign_optimization'] = self._parse_campaign_optimization(campaign_name)
             
-            logger.debug(f"Parsed ad name: {ad_name[:50]}... -> {result}")
+            # Removed debug logging to improve sync performance
+            # logger.debug(f"Parsed ad name: {ad_name[:50]}... -> {result}")
             
         except Exception as e:
             logger.warning(f"Error parsing ad name '{ad_name}': {e}")

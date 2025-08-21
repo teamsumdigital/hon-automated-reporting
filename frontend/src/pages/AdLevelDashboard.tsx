@@ -433,7 +433,7 @@ const AdLevelDashboard: React.FC = () => {
           </div>
 
           {/* Table */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden max-h-[80vh]">
             <div className="px-4 py-3 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <div>
@@ -465,9 +465,9 @@ const AdLevelDashboard: React.FC = () => {
                 </div>
               </div>
             </div>
-            <div className="overflow-x-auto">
+            <div className="overflow-auto max-h-[70vh]">
               <table className="w-full">
-                <thead className="bg-gray-50 sticky top-0">
+                <thead className="bg-gray-50 sticky top-0 z-10">
                   <tr>
                     {[
                       { key: 'ad_name', label: 'Ad Name', align: 'left' },
@@ -479,7 +479,7 @@ const AdLevelDashboard: React.FC = () => {
                     ].map((header, index) => (
                       <th
                         key={header.key}
-                        className={`px-3 py-2 ${header.align === 'left' ? 'text-left' : 'text-right'} text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors ${
+                        className={`px-3 py-2 ${header.align === 'left' ? 'text-left' : 'text-right'} text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors bg-gray-50 sticky top-0 z-10 ${
                           header.key === 'ad_name' ? 'w-1/3' : 'w-auto'
                         }`}
                         onClick={() => header.key !== 'ad_name' && handleSort(header.key)}

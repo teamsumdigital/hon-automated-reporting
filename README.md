@@ -12,6 +12,14 @@ A complete automated reporting solution for House of Noa's multi-platform advert
 - **Excel-Style Tabs**: Switch between platform dashboards with bottom tab navigation
 - **Unified Categorization**: Same product categorization system works across all platforms
 
+### Ad-Level Dashboard ✨ **NEW**
+- **Visual Thumbnails**: Real ad creative thumbnails from Meta Ads API (Facebook Ads Manager style)
+- **Expandable Weekly Breakdown**: Click to expand each ad showing 2 weekly periods (older above newer)
+- **Advanced Filtering**: 4-section sidebar (Category, Content Type, Format, Campaign Optimization)
+- **Performance Metrics**: Spend, ROAS, CPA, CPC, Days Live with sortable columns
+- **Deduplication Logic**: Handles ads appearing in multiple campaigns correctly
+- **Responsive Design**: Mobile-optimized filter panel and thumbnail display
+
 ### Data & Analytics  
 - **Ad-Level Data**: 14-day periods with weekly segmentation and real Meta ad IDs
 - **Enhanced Parsing**: 100% accurate ad name parsing with launch dates and product extraction
@@ -19,21 +27,25 @@ A complete automated reporting solution for House of Noa's multi-platform advert
 - **Dual Storage**: Original platform ad names + cleaned parsed versions
 - **Real-time Dashboards**: React frontend with comprehensive filtering and analytics
 - **Campaign Categorization**: Advanced categorization by product lines, colors, formats, and optimization types
+- **Thumbnail Integration**: Automatic fetching and caching of ad creative images
 
 ## 🏗️ Architecture
 
 ### Backend (FastAPI + Python)
 - **Meta Ads API Integration**: Dual account support with enhanced parsing and real ad ID verification
-- **Supabase Database**: Ad-level data storage with weekly segmentation and dual ad name fields
+- **Creative API Integration**: Thumbnail fetching from Meta Creative API with fallback handling
+- **Supabase Database**: Ad-level data storage with weekly segmentation and thumbnail URLs
 - **Advanced Parsing**: 100% accurate extraction of launch dates, products, colors, formats, and optimization types
 - **Smart Filtering**: Automatic removal of low-value ads ($0 spend + 0 purchases)
-- **Rate Limiting**: Production-ready API calls with proper retry logic
+- **Rate Limiting**: Production-ready API calls with proper retry logic and batch processing
 
 ### Frontend (React + Vite)
 - **Modern Dashboard**: Clean interface with KPI cards and pivot tables
-- **Category Filtering**: Filter by product categories
-- **Month-by-Month View**: Expandable monthly breakdowns
-- **Responsive Design**: Works on desktop and mobile
+- **Ad-Level Dashboard**: Individual ad performance with visual thumbnails and weekly breakdowns
+- **Tab Navigation**: Excel-style bottom tabs for Meta, Google, TikTok, and Ad-Level dashboards
+- **Advanced Filtering**: Multi-section filter sidebars with real-time updates
+- **Category Filtering**: Filter by product categories across all platforms
+- **Responsive Design**: Mobile-optimized layouts with overlay panels
 
 ### Automation (n8n)
 - **Daily Workflow**: Scheduled 5am data pulls
@@ -124,6 +136,7 @@ npm run dev
 ```
 Frontend: http://localhost:3007
 Backend API: http://localhost:8007
+Ad-Level Dashboard: http://localhost:3007/dashboard (click "Ad Level" tab)
 ```
 
 ## 📁 Project Structure
@@ -176,6 +189,12 @@ curl http://localhost:8007/api/reports/test-connection
 
 # Get monthly data
 curl http://localhost:8007/api/reports/monthly
+
+# Ad-level data with thumbnails
+curl http://localhost:8007/api/meta-ad-reports/ad-data
+
+# Sync ad-level data with thumbnails
+curl -X POST http://localhost:8007/api/meta-ad-reports/sync-14-days
 
 # Health check
 curl http://localhost:8007/health
@@ -418,9 +437,16 @@ python -c "from app.services.meta_api import MetaAdsService; print('✅ Connecte
 - `GET /api/reports/dashboard` - Dashboard summary
 - `POST /api/reports/sync` - Manual data sync
 
+### Ad-Level Dashboard ✨ **NEW**
+- `GET /api/meta-ad-reports/ad-data` - Ad-level data with thumbnails and weekly periods
+- `GET /api/meta-ad-reports/summary` - Ad-level KPI summary
+- `GET /api/meta-ad-reports/filters` - Available filter options
+- `POST /api/meta-ad-reports/sync-14-days` - Sync 14-day ad data with thumbnails
+
 ### Health & Testing
 - `GET /health` - Application health check
 - `GET /api/reports/test-connection` - Meta API connection test
+- `GET /api/meta-ad-reports/test-connection` - Ad-level API connection test
 
 ## 🤝 Contributing
 

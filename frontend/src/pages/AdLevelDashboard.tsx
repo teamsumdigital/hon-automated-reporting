@@ -321,9 +321,8 @@ const AdLevelDashboard: React.FC = () => {
     if (change === null || Math.abs(change) < 0.1) return null;
 
     const isPositive = change > 0;
-    const colorClass = type === 'spend' 
-      ? (isPositive ? 'text-red-600' : 'text-green-600') // For spend, increase is bad (red), decrease is good (green)
-      : (isPositive ? 'text-green-600' : 'text-red-600'); // For ROAS, increase is good (green), decrease is bad (red)
+    // Both spend and ROAS: increase = green (positive), decrease = red (negative)
+    const colorClass = isPositive ? 'text-green-600' : 'text-red-600';
 
     return (
       <span className={`text-xs font-medium ${colorClass} ml-1`}>

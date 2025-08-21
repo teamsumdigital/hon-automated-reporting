@@ -64,7 +64,13 @@ async def handle_n8n_webhook(
             
             # Start sync in separate thread to avoid blocking n8n
             def start_sync():
-                asyncio.run(sync_14_day_ad_data_background(payload.metadata))
+                try:
+                    asyncio.run(sync_14_day_ad_data_background(payload.metadata))
+                except Exception as e:
+                    logger.error(f"❌ Critical error in sync thread: {e}", exc_info=True)
+                    global _sync_status
+                    _sync_status["in_progress"] = False
+                    _sync_status["last_message"] = f"Thread crashed: {str(e)}"
             
             thread = threading.Thread(target=start_sync, daemon=True)
             thread.start()
@@ -240,7 +246,8 @@ async def sync_14_day_ad_data_background(metadata: Optional[Dict[str, Any]]):
         logger.error(f"❌ Error in 14-day ad sync: {e}")
         _sync_status["in_progress"] = False
         _sync_status["last_message"] = f"Failed: {str(e)}"
-        raise
+        # Don't raise in background thread - just log the error
+        logger.error(f"❌ Full error details: {str(e)}", exc_info=True)
 
 @router.post("/test")
 async def test_webhook():

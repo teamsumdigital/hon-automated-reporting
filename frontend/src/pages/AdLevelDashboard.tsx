@@ -479,7 +479,9 @@ const AdLevelDashboard: React.FC = () => {
                     ].map((header, index) => (
                       <th
                         key={header.key}
-                        className={`px-3 py-2 ${header.align === 'left' ? 'text-left' : 'text-right'} text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors`}
+                        className={`px-3 py-2 ${header.align === 'left' ? 'text-left' : 'text-right'} text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors ${
+                          header.key === 'ad_name' ? 'w-1/3' : 'w-auto'
+                        }`}
                         onClick={() => header.key !== 'ad_name' && handleSort(header.key)}
                       >
                         <div className={`flex items-center space-x-1 ${header.align === 'left' ? 'justify-start' : 'justify-end'}`}>
@@ -506,7 +508,7 @@ const AdLevelDashboard: React.FC = () => {
                         className={`transition-colors cursor-pointer ${getRowColorClass(ad.status)}`}
                         onClick={() => handleRowClick(ad.ad_name, ad.status)}
                       >
-                        <td className="px-4 py-2 whitespace-nowrap">
+                        <td className="px-4 py-2 whitespace-nowrap w-1/3">
                           <div className="flex items-center space-x-2">
                             <button
                               onClick={(e) => {
@@ -536,7 +538,7 @@ const AdLevelDashboard: React.FC = () => {
                                 </svg>
                               </div>
                             )}
-                            <div className="min-w-0 flex-1">
+                            <div className="min-w-0 max-w-xs">
                               <p className="text-xs font-medium text-gray-900 truncate">{ad.ad_name}</p>
                               <p className="text-xs text-gray-500">{ad.category}</p>
                             </div>

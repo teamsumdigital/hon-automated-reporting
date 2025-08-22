@@ -111,6 +111,7 @@ async def get_google_dashboard_data(
                 "amount_spent_usd": float(c.amount_spent_usd),
                 "website_purchases": c.website_purchases,
                 "purchases_conversion_value": float(c.purchases_conversion_value),
+                "impressions": c.impressions,
                 "link_clicks": c.link_clicks,
                 "cpa": float(c.cpa),
                 "roas": float(c.roas),

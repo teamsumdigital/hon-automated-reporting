@@ -2,6 +2,14 @@
 
 A complete automated reporting solution for House of Noa's multi-platform advertising campaigns with enhanced ad name parsing, weekly segmentation, real ad ID verification, and comprehensive platform support.
 
+## 🚨 CRITICAL PORT REQUIREMENTS
+
+**ALWAYS USE THESE EXACT PORTS - NO EXCEPTIONS:**
+- **Frontend**: http://localhost:3007 
+- **Backend**: http://localhost:8007
+
+These ports are standardized across all environments and must never be changed.
+
 ## 🎯 Features
 
 ### Multi-Platform Support

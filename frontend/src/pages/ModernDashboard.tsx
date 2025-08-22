@@ -500,7 +500,7 @@ const ModernDashboard: React.FC = () => {
                       <span className="text-xs text-gray-400 italic">Scroll to see all</span>
                     )}
                   </div>
-                  <div className="space-y-2 month-filter-container overflow-y-auto filter-sidebar-scroll relative">
+                  <div className="space-y-2 month-filter-container overflow-y-auto relative max-h-96">
                     {data?.monthly_breakdown?.sort((a: any, b: any) => b.month.localeCompare(a.month)).map((month: any) => (
                       <button
                         key={month.month}

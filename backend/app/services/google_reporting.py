@@ -151,6 +151,7 @@ class GoogleReportingService:
                         "link_clicks": 0,
                         "purchases": 0,
                         "revenue": Decimal('0'),
+                        "impressions": 0,
                         "campaign_count": 0
                     }
                 
@@ -158,6 +159,7 @@ class GoogleReportingService:
                 monthly_data[month_key]["link_clicks"] += campaign.link_clicks
                 monthly_data[month_key]["purchases"] += campaign.website_purchases
                 monthly_data[month_key]["revenue"] += campaign.purchases_conversion_value
+                monthly_data[month_key]["impressions"] += campaign.impressions
                 monthly_data[month_key]["campaign_count"] += 1
             
             # Calculate derived metrics and create pivot data
@@ -166,6 +168,7 @@ class GoogleReportingService:
                 cpa = data["spend"] / data["purchases"] if data["purchases"] > 0 else Decimal('0')
                 roas = data["revenue"] / data["spend"] if data["spend"] > 0 else Decimal('0')
                 cpc = data["spend"] / data["link_clicks"] if data["link_clicks"] > 0 else Decimal('0')
+                cpm = (data["spend"] / data["impressions"]) * 1000 if data["impressions"] > 0 else Decimal('0')
                 
                 pivot_item = GooglePivotTableData(
                     month=month_key,
@@ -173,9 +176,11 @@ class GoogleReportingService:
                     link_clicks=data["link_clicks"],
                     purchases=data["purchases"],
                     revenue=data["revenue"],
+                    impressions=data["impressions"],
                     cpa=cpa,
                     roas=roas,
-                    cpc=cpc
+                    cpc=cpc,
+                    cpm=cpm
                 )
                 pivot_data.append(pivot_item)
             

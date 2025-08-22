@@ -66,9 +66,11 @@ class GooglePivotTableData(BaseModel):
     link_clicks: int
     purchases: int
     revenue: Decimal
+    impressions: int
     cpa: Decimal
     roas: Decimal
     cpc: Decimal
+    cpm: Decimal
 
 class GoogleDashboardFilters(BaseModel):
     """Filters for Google Ads dashboard - same as Meta"""

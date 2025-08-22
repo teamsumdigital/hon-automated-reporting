@@ -334,9 +334,11 @@ class TikTokService:
                     "link_clicks": 0,
                     "purchases": 0,
                     "revenue": 0,
+                    "impressions": 0,
                     "cpa": 0,
                     "roas": 0,
-                    "cpc": 0
+                    "cpc": 0,
+                    "cpm": 0
                 }
             
             month_data = monthly_data[month_key]
@@ -344,6 +346,7 @@ class TikTokService:
             month_data["link_clicks"] += campaign.get("link_clicks", 0)
             month_data["purchases"] += campaign.get("website_purchases", 0)
             month_data["revenue"] += campaign.get("purchases_conversion_value", 0)
+            month_data["impressions"] += campaign.get("impressions", 0)
         
         # Calculate derived metrics for each month
         for month_data in monthly_data.values():
@@ -353,6 +356,8 @@ class TikTokService:
                 month_data["roas"] = month_data["revenue"] / month_data["spend"]
             if month_data["link_clicks"] > 0:
                 month_data["cpc"] = month_data["spend"] / month_data["link_clicks"]
+            if month_data["impressions"] > 0:
+                month_data["cpm"] = (month_data["spend"] / month_data["impressions"]) * 1000
         
         return sorted(monthly_data.values(), key=lambda x: x["month"])
     

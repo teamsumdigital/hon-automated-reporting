@@ -375,7 +375,7 @@ const GoogleDashboard: React.FC = () => {
               <table className="w-full">
                 <thead className="bg-gray-50 sticky top-0">
                   <tr>
-                    {['Month', 'Spend', 'Clicks', 'Conversions', 'Revenue', 'CPA', 'ROAS', 'CPC'].map((header, index) => (
+                    {['Month', 'Spend', 'Revenue', 'ROAS', 'CPA', 'CPC', 'CPM'].map((header, index) => (
                       <th
                         key={header}
                         className={`px-6 py-3 ${index === 0 ? 'text-left' : 'text-right'} text-xs font-medium text-gray-500 uppercase tracking-wider`}
@@ -427,16 +427,7 @@ const GoogleDashboard: React.FC = () => {
                           ${Math.round(totalSpend).toLocaleString()}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
-                          {totalClicks.toLocaleString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
-                          {totalPurchases.toLocaleString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
                           ${Math.round(totalRevenue).toLocaleString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
-                          ${avgCPA.toFixed(2)}
                         </td>
                         <td className={`px-6 py-4 whitespace-nowrap text-right text-sm font-medium ${
                           avgROAS >= 4 ? 'text-green-600' : 
@@ -445,7 +436,17 @@ const GoogleDashboard: React.FC = () => {
                           {avgROAS.toFixed(1)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
+                          ${avgCPA.toFixed(2)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
                           ${avgCPC.toFixed(2)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
+                          ${(() => {
+                            const totalImpressions = sortedYears.reduce((sum, year) => sum + (yearsInMonth[year].impressions || 0), 0);
+                            const avgCPM = totalImpressions > 0 ? (totalSpend / totalImpressions) * 1000 : 0;
+                            return avgCPM.toFixed(2);
+                          })()}
                         </td>
                       </tr>
                     );
@@ -463,16 +464,7 @@ const GoogleDashboard: React.FC = () => {
                               ${Math.round(parseFloat(yearData.spend)).toLocaleString()}
                             </td>
                             <td className="px-6 py-3 whitespace-nowrap text-right text-sm text-gray-900">
-                              {yearData.link_clicks.toLocaleString()}
-                            </td>
-                            <td className="px-6 py-3 whitespace-nowrap text-right text-sm text-gray-900">
-                              {yearData.purchases.toLocaleString()}
-                            </td>
-                            <td className="px-6 py-3 whitespace-nowrap text-right text-sm text-gray-900">
                               ${Math.round(parseFloat(yearData.revenue)).toLocaleString()}
-                            </td>
-                            <td className="px-6 py-3 whitespace-nowrap text-right text-sm text-gray-900">
-                              ${parseFloat(yearData.cpa).toFixed(2)}
                             </td>
                             <td className={`px-6 py-3 whitespace-nowrap text-right text-sm font-medium ${
                               parseFloat(yearData.roas) >= 4 ? 'text-green-600' : 
@@ -481,7 +473,17 @@ const GoogleDashboard: React.FC = () => {
                               {parseFloat(yearData.roas).toFixed(1)}
                             </td>
                             <td className="px-6 py-3 whitespace-nowrap text-right text-sm text-gray-900">
+                              ${parseFloat(yearData.cpa).toFixed(2)}
+                            </td>
+                            <td className="px-6 py-3 whitespace-nowrap text-right text-sm text-gray-900">
                               ${parseFloat(yearData.cpc).toFixed(2)}
+                            </td>
+                            <td className="px-6 py-3 whitespace-nowrap text-right text-sm text-gray-900">
+                              ${(() => {
+                                const cpm = (yearData.impressions || 0) > 0 ? 
+                                  (parseFloat(yearData.spend) / yearData.impressions) * 1000 : 0;
+                                return cpm.toFixed(2);
+                              })()}
                             </td>
                           </tr>
                         );

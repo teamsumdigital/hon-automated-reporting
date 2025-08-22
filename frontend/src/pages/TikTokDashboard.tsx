@@ -101,10 +101,16 @@ const TikTokDashboard: React.FC = () => {
       : 'https://hon-automated-reporting.onrender.com';
     
     const categoryParams = selectedCategories.length > 0 
-      ? `?categories=${selectedCategories.join(',')}` 
-      : '';
+      ? `?categories=${selectedCategories.join(',')}&_t=${Date.now()}` 
+      : `?_t=${Date.now()}`;
     
-    fetch(`${API_BASE_URL}/api/tiktok-reports/dashboard${categoryParams}`)
+    fetch(`${API_BASE_URL}/api/tiktok-reports/dashboard${categoryParams}`, {
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    })
       .then(response => {
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);

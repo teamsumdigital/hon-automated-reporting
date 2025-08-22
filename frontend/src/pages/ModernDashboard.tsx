@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  FunnelIcon, 
   ChevronRightIcon,
   ChevronDownIcon,
   InformationCircleIcon,
   ArrowUpIcon,
   ArrowDownIcon
 } from '@heroicons/react/24/outline';
+import Header from '../components/Header';
 
 interface KPICardProps {
   title: string;
@@ -266,29 +266,10 @@ const ModernDashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <img 
-              src="/house-of-noa-logo.png" 
-              alt="House of Noa" 
-              className="h-6 w-auto"
-            />
-          </div>
-          <button
-            onClick={() => setFilterPanelOpen(!filterPanelOpen)}
-            className="flex items-center space-x-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-          >
-            <FunnelIcon className="w-5 h-5 text-gray-600" />
-            <span className="text-sm font-medium text-gray-700">Filters</span>
-            {filterPanelOpen ? 
-              <ChevronRightIcon className="w-4 h-4 text-gray-500" /> :
-              <ChevronDownIcon className="w-4 h-4 text-gray-500" />
-            }
-          </button>
-        </div>
-      </div>
+      <Header 
+        filterPanelOpen={filterPanelOpen}
+        onFilterToggle={() => setFilterPanelOpen(!filterPanelOpen)}
+      />
 
       <div className="flex">
         {/* Main Content */}

@@ -57,7 +57,7 @@ const AuthGate: React.FC<AuthGateProps> = ({ children }) => {
             <img 
               src="/house-of-noa-logo.svg" 
               alt="House of Noa" 
-              className="mx-auto h-12 w-auto mb-6"
+              className="mx-auto h-10 w-auto mb-6 animate-fade-in hover:scale-105 transition-transform duration-200"
               onError={(e) => {
                 // Fallback if logo doesn't exist
                 e.currentTarget.style.display = 'none';

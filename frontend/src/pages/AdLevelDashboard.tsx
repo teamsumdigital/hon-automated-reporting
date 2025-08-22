@@ -327,15 +327,27 @@ const AdLevelDashboard: React.FC = () => {
   };
 
   const formatChangeIndicator = (change: number | null, type: 'spend' | 'roas') => {
-    if (change === null || Math.abs(change) < 0.1) return null;
+    console.log(`📊 Formatting ${type} change:`, change);
+    
+    if (change === null) {
+      console.log(`❌ ${type} change is null`);
+      return null;
+    }
+    
+    if (Math.abs(change) < 0.01) {
+      console.log(`📉 ${type} change too small:`, change);
+      return null;
+    }
 
     const isPositive = change > 0;
     // Both spend and ROAS: increase = green (positive), decrease = red (negative)
     const colorClass = isPositive ? 'text-green-600' : 'text-red-600';
 
+    console.log(`✅ Showing ${type} change: ${change.toFixed(1)}%`);
+
     return (
       <span className={`text-xs font-medium ${colorClass} ml-1`}>
-        {isPositive ? '+' : ''}{change.toFixed(0)}%
+        {isPositive ? '+' : ''}{change.toFixed(1)}%
       </span>
     );
   };

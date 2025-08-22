@@ -24,10 +24,10 @@ class AdNameParser:
             'solid', 'marble', 'geometric', 'floral', 'abstract', 'vintage', 'modern'
         ]
         
-        # Define known categories
+        # Define known categories - standardized names consistent with main categorization service
         self.categories = [
-            'tumbling mat', 'bath', 'standing mat', 'play mat', 'play furniture', 'multi',
-            'desk mat', 'floor mat', 'yoga mat', 'exercise mat', 'kitchen mat', 'door mat'
+            'tumbling mats', 'bath mats', 'standing mats', 'play mats', 'play furniture', 'multi category',
+            'high chair mats', 'creative testing', 'desk mats', 'floor mats', 'yoga mats', 'exercise mats'
         ]
         
         # Define content types
@@ -212,26 +212,30 @@ class AdNameParser:
     
     def _normalize_category(self, category: str) -> str:
         """
-        Normalize category name to standard format
+        Normalize category name to standard format - consistent with main categorization service
         """
         category_lower = category.lower().strip()
         
         if 'tumbling' in category_lower:
-            return 'Tumbling Mat'
+            return 'Tumbling Mats'
         elif 'bath' in category_lower:
-            return 'Bath'
+            return 'Bath Mats'
         elif 'standing' in category_lower or 'desk' in category_lower:
-            return 'Standing Mat'
+            return 'Standing Mats'
         elif 'play furniture' in category_lower:
             return 'Play Furniture'
         elif 'playmat' in category_lower or ('play' in category_lower and 'mat' in category_lower):
-            return 'Play Mat'
-        elif category_lower == 'multi':
-            return 'Multi'
+            return 'Play Mats'
+        elif category_lower == 'multi' or 'multi' in category_lower:
+            return 'Multi Category'
+        elif 'high chair' in category_lower:
+            return 'High Chair Mats'
+        elif 'creative testing' in category_lower:
+            return 'Creative Testing'
         elif 'mat' in category_lower:
-            return 'Mat'
+            return 'Mats'
         else:
-            return category.title()
+            return 'Uncategorized'
     
     def _normalize_content_type(self, content_type: str) -> str:
         """

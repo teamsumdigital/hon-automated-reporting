@@ -12,6 +12,7 @@ from loguru import logger
 from decimal import Decimal
 import re
 from .ad_name_parser import AdNameParser
+from .categorization import CategorizationService
 
 class MetaAdLevelService:
     """
@@ -33,6 +34,9 @@ class MetaAdLevelService:
         
         # Initialize the advanced ad name parser
         self.ad_parser = AdNameParser()
+        
+        # Initialize the main categorization service for consistent categories
+        self.categorization_service = CategorizationService()
         
         # Initialize secondary account if configured
         self.secondary_ad_account = None
@@ -210,8 +214,10 @@ class MetaAdLevelService:
                 # Calculate days live using parsed data if available, otherwise use API data
                 days_live = product_info['days_live'] if product_info['launch_date'] else self.calculate_days_live(launch_date, end_date)
                 
-                # Use parsed category if available, otherwise fall back to campaign categorization
-                category = product_info['category'] or self.categorize_campaign(campaign_name)
+                # Use main categorization service for consistency with other dashboards
+                # Try ad name first (more specific), fallback to campaign name
+                category = self.categorization_service.categorize_ad(ad_name, ad_id, platform="meta") or \
+                          self.categorize_campaign(campaign_name)
                 
                 # Use parsed campaign optimization, fallback to API objective
                 campaign_optimization = product_info['campaign_optimization'] or insight.get('objective', 'Standard')

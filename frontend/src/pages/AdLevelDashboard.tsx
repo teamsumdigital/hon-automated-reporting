@@ -110,11 +110,12 @@ const AdLevelDashboard: React.FC = () => {
   useEffect(() => {
     const handleScroll = () => {
       const scrollY = window.scrollY;
-      // Hide KPI cards when scrolled down more than 150px (about when they start getting cut off)
       setIsScrolled(scrollY > 150);
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll(); // Check initial position
+    
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
@@ -306,10 +307,7 @@ const AdLevelDashboard: React.FC = () => {
 
   // Calculate week-over-week changes
   const calculateWeekOverWeekChange = (ad: AdData) => {
-    console.log('🔍 Calculating changes for:', ad.ad_name, 'Weekly periods:', ad.weekly_periods?.length);
-    
     if (!ad.weekly_periods || ad.weekly_periods.length < 2) {
-      console.log('❌ Not enough periods for', ad.ad_name, 'Length:', ad.weekly_periods?.length);
       return { spendChange: null, roasChange: null };
     }
 
@@ -321,10 +319,6 @@ const AdLevelDashboard: React.FC = () => {
     const olderWeek = sortedPeriods[0];
     const newerWeek = sortedPeriods[1];
 
-    console.log('📊 Comparing periods for', ad.ad_name);
-    console.log('  Older:', olderWeek.reporting_starts, 'Spend:', olderWeek.spend, 'ROAS:', olderWeek.roas);
-    console.log('  Newer:', newerWeek.reporting_starts, 'Spend:', newerWeek.spend, 'ROAS:', newerWeek.roas);
-
     // Calculate percentage changes
     const spendChange = olderWeek.spend > 0 
       ? ((newerWeek.spend - olderWeek.spend) / olderWeek.spend) * 100 
@@ -334,33 +328,28 @@ const AdLevelDashboard: React.FC = () => {
       ? ((newerWeek.roas - olderWeek.roas) / olderWeek.roas) * 100 
       : null;
 
-    console.log('📈 Changes calculated:', { spendChange, roasChange });
-
     return { spendChange, roasChange };
   };
 
-  const formatChangeIndicator = (change: number | null, type: 'spend' | 'roas') => {
-    console.log(`📊 Formatting ${type} change:`, change);
-    
-    if (change === null) {
-      console.log(`❌ ${type} change is null`);
-      return null;
+  const formatChangeIndicator = (change: number | null, type: 'spend' | 'roas', hasInsufficientData: boolean = false) => {
+    if (hasInsufficientData) {
+      return (
+        <span className="text-xs text-gray-400 ml-1 italic" title="Need 2+ weeks for momentum">
+          --
+        </span>
+      );
     }
     
-    if (Math.abs(change) < 0.01) {
-      console.log(`📉 ${type} change too small:`, change);
+    if (change === null || Math.abs(change) < 1) {
       return null;
     }
 
     const isPositive = change > 0;
-    // Both spend and ROAS: increase = green (positive), decrease = red (negative)
     const colorClass = isPositive ? 'text-green-600' : 'text-red-600';
-
-    console.log(`✅ Showing ${type} change: ${change.toFixed(1)}%`);
 
     return (
       <span className={`text-xs font-medium ${colorClass} ml-1`}>
-        {isPositive ? '+' : ''}{change.toFixed(1)}%
+        {isPositive ? '+' : ''}{change.toFixed(0)}%
       </span>
     );
   };
@@ -557,7 +546,8 @@ const AdLevelDashboard: React.FC = () => {
                             <span>{formatCurrency(ad.total_spend)}</span>
                             {(() => {
                               const changes = calculateWeekOverWeekChange(ad);
-                              return formatChangeIndicator(changes.spendChange, 'spend');
+                              const hasInsufficientData = !ad.weekly_periods || ad.weekly_periods.length < 2;
+                              return formatChangeIndicator(changes.spendChange, 'spend', hasInsufficientData);
                             })()}
                           </div>
                         </td>
@@ -566,7 +556,8 @@ const AdLevelDashboard: React.FC = () => {
                             <span>{formatDecimal(ad.total_roas)}</span>
                             {(() => {
                               const changes = calculateWeekOverWeekChange(ad);
-                              return formatChangeIndicator(changes.roasChange, 'roas');
+                              const hasInsufficientData = !ad.weekly_periods || ad.weekly_periods.length < 2;
+                              return formatChangeIndicator(changes.roasChange, 'roas', hasInsufficientData);
                             })()}
                           </div>
                         </td>

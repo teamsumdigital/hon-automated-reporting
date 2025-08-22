@@ -88,10 +88,22 @@ const ModernDashboard: React.FC = () => {
   const [filterPanelOpen, setFilterPanelOpen] = useState(true);
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [isScrolled, setIsScrolled] = useState(false);
 
   useEffect(() => {
     fetchData();
   }, [selectedCategories]);
+
+  // Scroll detection for hiding KPI cards
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollY = window.scrollY;
+      setIsScrolled(scrollY > 150);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const fetchData = () => {
     const API_BASE_URL = import.meta.env.DEV 
@@ -274,8 +286,10 @@ const ModernDashboard: React.FC = () => {
       <div className="flex">
         {/* Main Content */}
         <div className={`flex-1 p-6 transition-all duration-300 ${filterPanelOpen ? 'mr-80' : 'mr-0'}`}>
-          {/* KPI Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {/* KPI Cards - Hidden when scrolled for clean screenshots */}
+          <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 transition-all duration-300 ${
+            isScrolled ? 'opacity-0 transform -translate-y-4 pointer-events-none h-0 mb-0' : 'opacity-100 transform translate-y-0'
+          }`}>
             <KPICard
               title="Total Spend"
               value={`$${Math.round(currentTotals?.totalSpend || currentTotals?.total_spend || 0).toLocaleString()}`}

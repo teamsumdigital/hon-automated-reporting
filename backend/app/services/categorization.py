@@ -41,6 +41,62 @@ class CategorizationService:
             logger.error(f"Error categorizing campaign {campaign_name}: {e}")
             return 'Uncategorized'
     
+    def categorize_ad(self, ad_name: str, ad_id: str, platform: str = "tiktok") -> str:
+        """
+        Categorize an ad based on ad name (for TikTok ads where campaign names don't contain product info)
+        """
+        try:
+            # For TikTok ads, categorize based on ad name using hardcoded rules
+            # since ad names contain the product information that campaign names lack
+            ad_name_lower = ad_name.lower()
+            
+            logger.debug(f"Categorizing {platform} ad '{ad_name}'")
+            
+            # TikTok-specific ad name categorization rules
+            # Play Mats - look for "play" AND "mat" but not "tumbling"
+            if 'play' in ad_name_lower and 'mat' in ad_name_lower and 'tumbling' not in ad_name_lower:
+                category = 'Play Mats'
+                logger.info(f"Ad '{ad_name}' -> '{category}' (play+mat pattern)")
+                return category
+            
+            # Tumbling Mats - specific keyword
+            if 'tumbling' in ad_name_lower:
+                category = 'Tumbling Mats'
+                logger.info(f"Ad '{ad_name}' -> '{category}' (tumbling pattern)")
+                return category
+            
+            # Standing Mats - standing desk mats
+            if 'standing' in ad_name_lower or 'desk' in ad_name_lower:
+                category = 'Standing Mats'
+                logger.info(f"Ad '{ad_name}' -> '{category}' (standing/desk pattern)")
+                return category
+            
+            # Bath Mats
+            if 'bath' in ad_name_lower:
+                category = 'Bath Mats'
+                logger.info(f"Ad '{ad_name}' -> '{category}' (bath pattern)")
+                return category
+            
+            # Play Furniture
+            if 'play' in ad_name_lower and 'furniture' in ad_name_lower:
+                category = 'Play Furniture'
+                logger.info(f"Ad '{ad_name}' -> '{category}' (play+furniture pattern)")
+                return category
+            
+            # Multi Category
+            if 'multi' in ad_name_lower:
+                category = 'Multi Category'
+                logger.info(f"Ad '{ad_name}' -> '{category}' (multi pattern)")
+                return category
+            
+            # Default category
+            logger.info(f"Ad '{ad_name}' -> 'Uncategorized' (no patterns matched)")
+            return 'Uncategorized'
+            
+        except Exception as e:
+            logger.error(f"Error categorizing ad {ad_name}: {e}")
+            return 'Uncategorized'
+    
     def get_all_categories(self) -> List[str]:
         """
         Get all unique categories from the database

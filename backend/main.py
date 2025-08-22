@@ -12,6 +12,7 @@ from app.api.reports import router as reports_router
 from app.api.google_reports import router as google_reports_router
 from app.api.v1.endpoints.tiktok_reports import router as tiktok_reports_router
 from app.api.meta_ad_reports import router as meta_ad_reports_router
+from app.api.tiktok_ad_reports import router as tiktok_ad_reports_router
 from app.api.webhook import router as webhook_router
 
 # Configure logging
@@ -49,6 +50,7 @@ app.include_router(reports_router)
 app.include_router(google_reports_router)
 app.include_router(tiktok_reports_router, prefix="/api/tiktok-reports", tags=["TikTok Reports"])
 app.include_router(meta_ad_reports_router, prefix="/api/meta-ad-reports", tags=["Meta Ad Level Reports"])
+app.include_router(tiktok_ad_reports_router, prefix="/api/tiktok-ad-reports", tags=["TikTok Ad Level Reports"])
 app.include_router(webhook_router)
 
 @app.get("/")
@@ -85,6 +87,14 @@ async def root():
                 "update_status": "/api/meta-ad-reports/update-status",
                 "status_counts": "/api/meta-ad-reports/status-counts",
                 "test": "/api/meta-ad-reports/test-connection"
+            },
+            "tiktok_ad_level": {
+                "ad_data": "/api/tiktok-ad-reports/ad-data",
+                "summary": "/api/tiktok-ad-reports/summary", 
+                "filters": "/api/tiktok-ad-reports/filters",
+                "sync_14_days": "/api/tiktok-ad-reports/sync-14-days",
+                "categories": "/api/tiktok-ad-reports/categories",
+                "test": "/api/tiktok-ad-reports/test-connection"
             },
             "webhook": "/api/webhook/n8n-trigger"
         }

@@ -278,7 +278,8 @@ const GoogleDashboard: React.FC = () => {
           spend: 0,
           link_clicks: 0,
           purchases: 0,
-          revenue: 0
+          revenue: 0,
+          impressions: 0
         };
       }
       
@@ -286,6 +287,7 @@ const GoogleDashboard: React.FC = () => {
       monthlyData[monthKey].link_clicks += campaign.link_clicks;
       monthlyData[monthKey].purchases += campaign.website_purchases;
       monthlyData[monthKey].revenue += campaign.purchases_conversion_value;
+      monthlyData[monthKey].impressions += campaign.impressions;
     });
     
     // Convert to pivot data format with calculated metrics
@@ -295,9 +297,11 @@ const GoogleDashboard: React.FC = () => {
       link_clicks: data.link_clicks,
       purchases: data.purchases,
       revenue: data.revenue,
+      impressions: data.impressions,
       cpa: data.purchases > 0 ? data.spend / data.purchases : 0,
       roas: data.spend > 0 ? data.revenue / data.spend : 0,
-      cpc: data.link_clicks > 0 ? data.spend / data.link_clicks : 0
+      cpc: data.link_clicks > 0 ? data.spend / data.link_clicks : 0,
+      cpm: data.impressions > 0 ? (data.spend / data.impressions) * 1000 : 0
     }));
   }
   
@@ -318,6 +322,7 @@ const GoogleDashboard: React.FC = () => {
         total_clicks: filteredPivotData.reduce((sum, item) => sum + item.link_clicks, 0),
         total_purchases: filteredPivotData.reduce((sum, item) => sum + item.purchases, 0),
         total_revenue: filteredPivotData.reduce((sum, item) => sum + parseFloat(item.revenue.toString()), 0),
+        total_impressions: filteredPivotData.reduce((sum, item) => sum + (item.impressions || 0), 0),
         avg_cpa: filteredPivotData.length > 0 ? filteredPivotData.reduce((sum, item) => sum + parseFloat(item.cpa.toString()), 0) / filteredPivotData.length : 0,
         avg_roas: filteredPivotData.length > 0 ? filteredPivotData.reduce((sum, item) => sum + parseFloat(item.roas.toString()), 0) / filteredPivotData.length : 0,
         avg_cpc: filteredPivotData.length > 0 ? filteredPivotData.reduce((sum, item) => sum + parseFloat(item.cpc.toString()), 0) / filteredPivotData.length : 0,

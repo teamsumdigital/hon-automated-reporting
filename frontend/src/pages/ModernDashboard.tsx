@@ -324,7 +324,7 @@ const ModernDashboard: React.FC = () => {
           {/* Table */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">Meta Campaigns by Month</h2>
+              <h2 className="text-lg font-semibold text-gray-900">Meta Ads by Month</h2>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">

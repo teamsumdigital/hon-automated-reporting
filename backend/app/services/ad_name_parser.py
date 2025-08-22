@@ -26,7 +26,7 @@ class AdNameParser:
         
         # Define known categories
         self.categories = [
-            'tumbling mat', 'bath', 'standing mat', 'play mat', 'playmat', 'play furniture', 'multi',
+            'tumbling mat', 'bath', 'standing mat', 'play mat', 'play furniture', 'multi',
             'desk mat', 'floor mat', 'yoga mat', 'exercise mat', 'kitchen mat', 'door mat'
         ]
         
@@ -224,9 +224,7 @@ class AdNameParser:
             return 'Standing Mat'
         elif 'play furniture' in category_lower:
             return 'Play Furniture'
-        elif category_lower == 'playmat':
-            return 'Playmat'
-        elif 'play' in category_lower and 'mat' in category_lower:
+        elif 'playmat' in category_lower or ('play' in category_lower and 'mat' in category_lower):
             return 'Play Mat'
         elif category_lower == 'multi':
             return 'Multi'

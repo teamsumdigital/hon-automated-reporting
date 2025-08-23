@@ -8,11 +8,15 @@ import {
   Target,
   Zap
 } from 'lucide-react';
+import { ChevronDownIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import { MTDSummary } from '../services/api';
 
 interface MetricsCardsProps {
   summary: MTDSummary;
   loading?: boolean;
+  isCollapsed?: boolean;
+  onToggle?: () => void;
+  title?: string;
 }
 
 const formatCurrency = (value: number): string => {
@@ -68,7 +72,13 @@ const MetricCard: React.FC<{
   );
 };
 
-const MetricsCards: React.FC<MetricsCardsProps> = ({ summary, loading = false }) => {
+const MetricsCards: React.FC<MetricsCardsProps> = ({ 
+  summary, 
+  loading = false, 
+  isCollapsed = false,
+  onToggle,
+  title = "Performance Overview"
+}) => {
   const metrics = [
     {
       title: 'Total Spend',
@@ -109,17 +119,44 @@ const MetricsCards: React.FC<MetricsCardsProps> = ({ summary, loading = false })
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
-      {metrics.map((metric, index) => (
-        <MetricCard
-          key={metric.title}
-          title={metric.title}
-          value={metric.value}
-          icon={metric.icon}
-          subtitle={metric.subtitle}
-          loading={loading}
-        />
-      ))}
+    <div className="mb-6">
+      {/* Toggle Header */}
+      {onToggle && (
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
+          <button
+            onClick={onToggle}
+            className="flex items-center space-x-1 px-3 py-1 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors duration-200"
+          >
+            <span>{isCollapsed ? 'Show' : 'Hide'}</span>
+            {isCollapsed ? (
+              <ChevronRightIcon className="w-4 h-4" />
+            ) : (
+              <ChevronDownIcon className="w-4 h-4" />
+            )}
+          </button>
+        </div>
+      )}
+      
+      {/* Metrics Cards */}
+      <div className={`transition-all duration-300 ease-in-out ${
+        isCollapsed 
+          ? 'opacity-0 max-h-0 overflow-hidden transform -translate-y-2 pointer-events-none' 
+          : 'opacity-100 max-h-full transform translate-y-0'
+      }`}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+          {metrics.map((metric, index) => (
+            <MetricCard
+              key={metric.title}
+              title={metric.title}
+              value={metric.value}
+              icon={metric.icon}
+              subtitle={metric.subtitle}
+              loading={loading}
+            />
+          ))}
+        </div>
+      </div>
     </div>
   );
 };

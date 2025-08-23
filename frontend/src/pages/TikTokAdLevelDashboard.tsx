@@ -134,6 +134,7 @@ const TikTokAdLevelDashboard: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [expandedAds, setExpandedAds] = useState<string[]>([]);
   const [filterPanelOpen, setFilterPanelOpen] = useState(true);
+  const [kpiCollapsed, setKpiCollapsed] = useState(false);
   const [sortColumn, setSortColumn] = useState<string | null>('total_spend');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [isScrolled, setIsScrolled] = useState(false);
@@ -354,7 +355,11 @@ const TikTokAdLevelDashboard: React.FC = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header title="TikTok Ad Level Dashboard" />
+        <Header 
+        filterPanelOpen={filterPanelOpen}
+        onFilterToggle={() => setFilterPanelOpen(!filterPanelOpen)}
+        showFilters={false}
+      />
         <div className="flex items-center justify-center h-64">
           <div className="text-lg text-gray-600">Loading TikTok ad data...</div>
         </div>
@@ -365,7 +370,11 @@ const TikTokAdLevelDashboard: React.FC = () => {
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header title="TikTok Ad Level Dashboard" />
+        <Header 
+        filterPanelOpen={filterPanelOpen}
+        onFilterToggle={() => setFilterPanelOpen(!filterPanelOpen)}
+        showFilters={false}
+      />
         <div className="flex items-center justify-center h-64">
           <div className="text-lg text-red-600">Error: {error}</div>
         </div>
@@ -375,36 +384,63 @@ const TikTokAdLevelDashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header title="TikTok Ad Level Dashboard" />
+      <Header 
+        filterPanelOpen={filterPanelOpen}
+        onFilterToggle={() => setFilterPanelOpen(!filterPanelOpen)}
+        showFilters={false}
+      />
       
-      {/* KPI Cards - Hide when scrolled */}
-      {!isScrolled && summary && (
+      {/* Collapsible KPI Dashboard */}
+      {summary && (
         <div className="bg-white border-b border-gray-200 p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <KPICard
-              title="Total Spend"
-              value={formatCurrency(summary.total_spend)}
-              tooltip="Total ad spend across all TikTok ads"
-              color="blue"
-            />
-            <KPICard
-              title="ROAS"
-              value={formatDecimal(summary.avg_roas)}
-              tooltip="Return on Ad Spend - Revenue divided by Spend"
-              color={summary.avg_roas >= 4 ? 'green' : summary.avg_roas >= 2 ? 'amber' : 'blue'}
-            />
-            <KPICard
-              title="CPA"
-              value={formatCurrency(summary.avg_cpa)}
-              tooltip="Cost Per Acquisition - Spend divided by Purchases"
-              color="purple"
-            />
-            <KPICard
-              title="Ads Count"
-              value={summary.ads_count.toLocaleString()}
-              tooltip="Total number of TikTok ads with data"
-              color="amber"
-            />
+          {/* Toggle Header */}
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">Performance Overview</h2>
+            <button
+              onClick={() => setKpiCollapsed(!kpiCollapsed)}
+              className="flex items-center space-x-1 px-3 py-1 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors duration-200"
+            >
+              <span>{kpiCollapsed ? 'Show' : 'Hide'}</span>
+              {kpiCollapsed ? (
+                <ChevronRightIcon className="w-4 h-4" />
+              ) : (
+                <ChevronDownIcon className="w-4 h-4" />
+              )}
+            </button>
+          </div>
+          
+          {/* KPI Cards */}
+          <div className={`transition-all duration-300 ease-in-out ${
+            kpiCollapsed 
+              ? 'opacity-0 max-h-0 overflow-hidden transform -translate-y-2 pointer-events-none' 
+              : 'opacity-100 max-h-full transform translate-y-0'
+          }`}>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <KPICard
+                title="Total Spend"
+                value={formatCurrency(summary.total_spend)}
+                tooltip="Total ad spend across all TikTok ads"
+                color="blue"
+              />
+              <KPICard
+                title="ROAS"
+                value={formatDecimal(summary.avg_roas)}
+                tooltip="Return on Ad Spend - Revenue divided by Spend"
+                color={summary.avg_roas >= 4 ? 'green' : summary.avg_roas >= 2 ? 'amber' : 'blue'}
+              />
+              <KPICard
+                title="CPA"
+                value={formatCurrency(summary.avg_cpa)}
+                tooltip="Cost Per Acquisition - Spend divided by Purchases"
+                color="purple"
+              />
+              <KPICard
+                title="Ads Count"
+                value={summary.ads_count.toLocaleString()}
+                tooltip="Total number of TikTok ads with data"
+                color="amber"
+              />
+            </div>
           </div>
         </div>
       )}

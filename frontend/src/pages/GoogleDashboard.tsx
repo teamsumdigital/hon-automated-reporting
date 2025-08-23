@@ -93,6 +93,7 @@ const GoogleDashboard: React.FC = () => {
   const [selectedCampaignTypes, setSelectedCampaignTypes] = useState<string[]>([]);
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set());
   const [filterPanelOpen, setFilterPanelOpen] = useState(true);
+  const [kpiCollapsed, setKpiCollapsed] = useState(false);
   const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
   const [expandedTableMonths, setExpandedTableMonths] = useState<string[]>([]);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -340,34 +341,57 @@ const GoogleDashboard: React.FC = () => {
       <div className="flex">
         {/* Main Content */}
         <div className={`flex-1 p-6 transition-all duration-300 ${filterPanelOpen ? 'mr-80' : 'mr-0'}`}>
-          {/* KPI Cards - Hidden when scrolled for clean screenshots */}
-          <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 transition-all duration-300 ${
-            isScrolled ? 'opacity-0 transform -translate-y-4 pointer-events-none h-0 mb-0' : 'opacity-100 transform translate-y-0'
-          }`}>
-            <KPICard
-              title="Total Spend"
-              value={formatGoogleCurrency(displaySummary.total_spend)}
-              tooltip="Total amount spent on Google Ads campaigns"
-              color="blue"
-            />
-            <KPICard
-              title="Total Revenue"
-              value={formatGoogleCurrency(displaySummary.total_revenue)}
-              tooltip="Total revenue generated from Google Ads campaigns"
-              color="green"
-            />
-            <KPICard
-              title="ROAS"
-              value={formatGoogleDecimal(displaySummary.avg_roas, 2)}
-              tooltip="Return on Ad Spend - Revenue divided by Ad Spend"
-              color="amber"
-            />
-            <KPICard
-              title="Total Purchases"
-              value={formatGoogleNumber(displaySummary.total_purchases)}
-              tooltip="Total number of purchases attributed to Google Ads"
-              color="purple"
-            />
+          {/* Collapsible KPI Dashboard */}
+          <div className="mb-8">
+            {/* Toggle Header */}
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">Performance Overview</h2>
+              <button
+                onClick={() => setKpiCollapsed(!kpiCollapsed)}
+                className="flex items-center space-x-1 px-3 py-1 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors duration-200"
+              >
+                <span>{kpiCollapsed ? 'Show' : 'Hide'}</span>
+                {kpiCollapsed ? (
+                  <ChevronRightIcon className="w-4 h-4" />
+                ) : (
+                  <ChevronDownIcon className="w-4 h-4" />
+                )}
+              </button>
+            </div>
+            
+            {/* KPI Cards */}
+            <div className={`transition-all duration-300 ease-in-out ${
+              kpiCollapsed 
+                ? 'opacity-0 max-h-0 overflow-hidden transform -translate-y-2 pointer-events-none' 
+                : 'opacity-100 max-h-full transform translate-y-0'
+            }`}>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <KPICard
+                  title="Total Spend"
+                  value={formatGoogleCurrency(displaySummary.total_spend)}
+                  tooltip="Total amount spent on Google Ads campaigns"
+                  color="blue"
+                />
+                <KPICard
+                  title="Total Revenue"
+                  value={formatGoogleCurrency(displaySummary.total_revenue)}
+                  tooltip="Total revenue generated from Google Ads campaigns"
+                  color="green"
+                />
+                <KPICard
+                  title="ROAS"
+                  value={formatGoogleDecimal(displaySummary.avg_roas, 2)}
+                  tooltip="Return on Ad Spend - Revenue divided by Ad Spend"
+                  color="amber"
+                />
+                <KPICard
+                  title="Total Purchases"
+                  value={formatGoogleNumber(displaySummary.total_purchases)}
+                  tooltip="Total number of purchases attributed to Google Ads"
+                  color="purple"
+                />
+              </div>
+            </div>
           </div>
 
           {/* Table */}

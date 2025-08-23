@@ -88,6 +88,7 @@ const TikTokDashboard: React.FC = () => {
   const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
   const [expandedMonths, setExpandedMonths] = useState<string[]>([]);
   const [filterPanelOpen, setFilterPanelOpen] = useState(true);
+  const [kpiCollapsed, setKpiCollapsed] = useState(false);
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [isScrolled, setIsScrolled] = useState(false);
@@ -288,34 +289,57 @@ const TikTokDashboard: React.FC = () => {
       <div className="flex">
         {/* Main Content */}
         <div className={`flex-1 p-6 transition-all duration-300 ${filterPanelOpen ? 'mr-80' : 'mr-0'}`}>
-          {/* KPI Cards - Hidden when scrolled for clean screenshots */}
-          <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 transition-all duration-300 ${
-            isScrolled ? 'opacity-0 transform -translate-y-4 pointer-events-none h-0 mb-0' : 'opacity-100 transform translate-y-0'
-          }`}>
-            <KPICard
-              title="Total Spend"
-              value={`$${Math.round(currentTotals?.totalSpend || currentTotals?.total_spend || 0).toLocaleString()}`}
-              tooltip="Total amount spent on TikTok advertising campaigns"
-              color="blue"
-            />
-            <KPICard
-              title="Total Revenue"
-              value={`$${Math.round(currentTotals?.totalRevenue || currentTotals?.total_revenue || 0).toLocaleString()}`}
-              tooltip="Total revenue generated from TikTok advertising campaigns"
-              color="green"
-            />
-            <KPICard
-              title="ROAS"
-              value={Number(currentTotals?.avgROAS || currentTotals?.avg_roas || 0).toFixed(2)}
-              tooltip="Return on Ad Spend - Revenue divided by Ad Spend"
-              color="amber"
-            />
-            <KPICard
-              title="CPA"
-              value={`$${(currentTotals?.avgCPA || currentTotals?.avg_cpa || 0).toFixed(2)}`}
-              tooltip="Average cost per acquisition across TikTok campaigns"
-              color="purple"
-            />
+          {/* Collapsible KPI Dashboard */}
+          <div className="mb-8">
+            {/* Toggle Header */}
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">Performance Overview</h2>
+              <button
+                onClick={() => setKpiCollapsed(!kpiCollapsed)}
+                className="flex items-center space-x-1 px-3 py-1 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors duration-200"
+              >
+                <span>{kpiCollapsed ? 'Show' : 'Hide'}</span>
+                {kpiCollapsed ? (
+                  <ChevronRightIcon className="w-4 h-4" />
+                ) : (
+                  <ChevronDownIcon className="w-4 h-4" />
+                )}
+              </button>
+            </div>
+            
+            {/* KPI Cards */}
+            <div className={`transition-all duration-300 ease-in-out ${
+              kpiCollapsed 
+                ? 'opacity-0 max-h-0 overflow-hidden transform -translate-y-2 pointer-events-none' 
+                : 'opacity-100 max-h-full transform translate-y-0'
+            }`}>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <KPICard
+                  title="Total Spend"
+                  value={`$${Math.round(currentTotals?.totalSpend || currentTotals?.total_spend || 0).toLocaleString()}`}
+                  tooltip="Total amount spent on TikTok advertising campaigns"
+                  color="blue"
+                />
+                <KPICard
+                  title="Total Revenue"
+                  value={`$${Math.round(currentTotals?.totalRevenue || currentTotals?.total_revenue || 0).toLocaleString()}`}
+                  tooltip="Total revenue generated from TikTok advertising campaigns"
+                  color="green"
+                />
+                <KPICard
+                  title="ROAS"
+                  value={Number(currentTotals?.avgROAS || currentTotals?.avg_roas || 0).toFixed(2)}
+                  tooltip="Return on Ad Spend - Revenue divided by Ad Spend"
+                  color="amber"
+                />
+                <KPICard
+                  title="CPA"
+                  value={`$${(currentTotals?.avgCPA || currentTotals?.avg_cpa || 0).toFixed(2)}`}
+                  tooltip="Average cost per acquisition across TikTok campaigns"
+                  color="purple"
+                />
+              </div>
+            </div>
           </div>
 
           {/* Table */}

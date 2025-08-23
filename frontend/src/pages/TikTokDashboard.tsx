@@ -291,18 +291,16 @@ const TikTokDashboard: React.FC = () => {
         <div className={`flex-1 p-6 transition-all duration-300 ${filterPanelOpen ? 'mr-80' : 'mr-0'}`}>
           {/* Collapsible KPI Dashboard */}
           <div className="mb-8">
-            {/* Toggle Header */}
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">Performance Overview</h2>
+            {/* Toggle Button */}
+            <div className="flex justify-end mb-4">
               <button
                 onClick={() => setKpiCollapsed(!kpiCollapsed)}
-                className="flex items-center space-x-1 px-3 py-1 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors duration-200"
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors duration-200"
               >
-                <span>{kpiCollapsed ? 'Show' : 'Hide'}</span>
                 {kpiCollapsed ? (
-                  <ChevronRightIcon className="w-4 h-4" />
+                  <ChevronRightIcon className="w-5 h-5" />
                 ) : (
-                  <ChevronDownIcon className="w-4 h-4" />
+                  <ChevronDownIcon className="w-5 h-5" />
                 )}
               </button>
             </div>

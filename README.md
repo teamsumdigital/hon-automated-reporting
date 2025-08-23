@@ -267,6 +267,52 @@ Automatic categorization rules:
 4. **Categorization**: Apply product line rules
 5. **Database Insert**: Upsert to Supabase
 
+## 🎯 Category Standardization (December 2024)
+
+### Cross-Dashboard Consistency
+All dashboards now use identical category naming for consistency:
+
+**Standardized Categories:**
+- ✅ **Bath Mats** (was "Bath")
+- ✅ **Multi Category** (was "Multi") 
+- ✅ **Play Mats** (was "Playmat"/"Play Mat")
+- ✅ **Standing Mats** (was "Standing Mat")
+- ✅ **Tumbling Mats** (was "Tumbling Mat")
+- ✅ **Play Furniture** (consistent)
+
+### Issue Resolution
+**Problem**: High-spending Play Mat ads disappeared from "All Categories" view due to inconsistent categorization ("Play Mat" vs "Playmat").
+
+**Solution**: Comprehensive category standardization across all dashboards:
+1. Updated ad name parser with consistent category names
+2. Integrated main categorization service across Meta Ad Level dashboard
+3. Created automated cleanup scripts to remove duplicate category filters
+4. Implemented fresh sync process to recategorize all existing data
+
+### Category Management Scripts
+```bash
+# Test category standardization across dashboards
+python test_category_standardization.py
+
+# Clean up duplicate category filters  
+python api_category_cleanup.py
+
+# Debug categorization issues
+python debug_categorization.py
+
+# Verify high-spender visibility fix
+python final_verification.py
+
+# Monitor sync progress
+python quick_category_check.py
+```
+
+### Results
+- ✅ High-spending ads now visible consistently across all views
+- ✅ Filter dropdowns show only standardized category names
+- ✅ Cross-dashboard category consistency (Meta, Google, TikTok, Ad-Level)
+- ✅ Automated cleanup prevents future category drift
+
 ## 🚨 Important Notes
 
 ### Data Accuracy

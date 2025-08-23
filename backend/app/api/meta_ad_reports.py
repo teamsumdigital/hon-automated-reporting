@@ -193,27 +193,50 @@ def get_ad_level_data(
         from datetime import datetime, timedelta
         cutoff_date = (datetime.now() - timedelta(days=14)).strftime('%Y-%m-%d')
         
-        query = supabase.table('meta_ad_data').select('*').gte('reporting_starts', cutoff_date)
+        # Build base query
+        base_query = supabase.table('meta_ad_data').select('*').gte('reporting_starts', cutoff_date)
         
         # Apply filters
         if categories:
             category_list = categories.split(',')
-            query = query.in_('category', category_list)
+            base_query = base_query.in_('category', category_list)
         if content_types:
             content_type_list = content_types.split(',')
-            query = query.in_('content_type', content_type_list)
+            base_query = base_query.in_('content_type', content_type_list)
         if formats:
             format_list = formats.split(',')
-            query = query.in_('format', format_list)
+            base_query = base_query.in_('format', format_list)
         if campaign_optimizations:
             optimization_list = campaign_optimizations.split(',')
-            query = query.in_('campaign_optimization', optimization_list)
+            base_query = base_query.in_('campaign_optimization', optimization_list)
         
-        # Order by ad name, then by reporting date (older first)
-        # IMPORTANT: Add explicit limit to ensure we get all records (Supabase default is 1000)
-        query = query.order('ad_name').order('reporting_starts').limit(10000)
+        # IMPORTANT: Paginate to get all records (Supabase has 1000 record limit per request)
+        # Fetch data in batches to bypass the limit
+        all_data = []
+        page_size = 500
+        offset = 0
         
-        result = query.execute()
+        while True:
+            query = base_query.order('ad_name').order('reporting_starts').range(offset, offset + page_size - 1)
+            batch_result = query.execute()
+            
+            if not batch_result.data:
+                break
+                
+            all_data.extend(batch_result.data)
+            
+            # If we got less than page_size records, we've reached the end
+            if len(batch_result.data) < page_size:
+                break
+                
+            offset += page_size
+            
+            # Safety limit to prevent infinite loops
+            if offset > 10000:
+                logger.warning(f"Reached safety limit while paginating ad data")
+                break
+        
+        result = type('Result', (), {'data': all_data})()
         
         if not result.data:
             return {
@@ -350,8 +373,8 @@ def get_ad_level_summary(
             optimization_list = campaign_optimizations.split(',')
             query = query.in_('campaign_optimization', optimization_list)
         
-        # Add explicit limit to ensure we get all records
-        result = query.limit(10000).execute()
+        # Use range to ensure we get all records (bypasses 1000 record limit)
+        result = query.range(0, 9999).execute()
         
         if not result.data:
             return {
@@ -385,7 +408,7 @@ def get_filter_options():
     Get available filter options for the ad-level dashboard
     """
     try:
-        result = supabase.table('meta_ad_data').select('category, content_type, format, campaign_optimization').limit(10000).execute()
+        result = supabase.table('meta_ad_data').select('category, content_type, format, campaign_optimization').range(0, 9999).execute()
         
         if not result.data:
             return {

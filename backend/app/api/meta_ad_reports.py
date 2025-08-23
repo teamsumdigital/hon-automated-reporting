@@ -210,7 +210,8 @@ def get_ad_level_data(
             query = query.in_('campaign_optimization', optimization_list)
         
         # Order by ad name, then by reporting date (older first)
-        query = query.order('ad_name').order('reporting_starts')
+        # IMPORTANT: Add explicit limit to ensure we get all records (Supabase default is 1000)
+        query = query.order('ad_name').order('reporting_starts').limit(10000)
         
         result = query.execute()
         
@@ -349,7 +350,8 @@ def get_ad_level_summary(
             optimization_list = campaign_optimizations.split(',')
             query = query.in_('campaign_optimization', optimization_list)
         
-        result = query.execute()
+        # Add explicit limit to ensure we get all records
+        result = query.limit(10000).execute()
         
         if not result.data:
             return {
@@ -383,7 +385,7 @@ def get_filter_options():
     Get available filter options for the ad-level dashboard
     """
     try:
-        result = supabase.table('meta_ad_data').select('category, content_type, format, campaign_optimization').execute()
+        result = supabase.table('meta_ad_data').select('category, content_type, format, campaign_optimization').limit(10000).execute()
         
         if not result.data:
             return {

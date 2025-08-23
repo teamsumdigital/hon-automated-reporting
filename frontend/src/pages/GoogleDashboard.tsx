@@ -484,11 +484,7 @@ const GoogleDashboard: React.FC = () => {
                               ${parseFloat(yearData.cpc).toFixed(2)}
                             </td>
                             <td className="px-6 py-3 whitespace-nowrap text-right text-sm text-gray-900">
-                              ${(() => {
-                                const cpm = (yearData.impressions || 0) > 0 ? 
-                                  (parseFloat(yearData.spend) / yearData.impressions) * 1000 : 0;
-                                return cpm.toFixed(2);
-                              })()}
+                              ${parseFloat(yearData.cpm).toFixed(2)}
                             </td>
                           </tr>
                         );

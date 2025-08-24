@@ -540,7 +540,7 @@ const GoogleDashboard: React.FC = () => {
             </div>
 
             {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto filter-scroll">
+            <div className="flex-1 overflow-y-auto filter-sidebar-scroll">
               <div className="p-6 space-y-8">
                 {/* Category Filters */}
                 {dashboardData?.categories && dashboardData.categories.length > 0 && (
@@ -595,7 +595,7 @@ const GoogleDashboard: React.FC = () => {
                         <span className="text-xs text-gray-400 italic">Scroll to see all</span>
                       )}
                     </div>
-                    <div className="space-y-2 max-h-[16rem] overflow-y-auto filter-scroll">
+                    <div className="space-y-2 month-filter-container overflow-y-auto relative max-h-96">
                       {dashboardData.pivot_data
                         .slice()
                         .sort((a, b) => b.month.localeCompare(a.month))
@@ -615,6 +615,11 @@ const GoogleDashboard: React.FC = () => {
                           </span>
                         </button>
                       ))}
+                      
+                      {/* Fade effect for visual scroll indication */}
+                      {dashboardData.pivot_data.length > 8 && (
+                        <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white to-transparent pointer-events-none"></div>
+                      )}
                     </div>
                   </div>
                 )}

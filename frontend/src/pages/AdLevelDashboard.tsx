@@ -650,13 +650,13 @@ const AdLevelDashboard: React.FC = () => {
             </div>
 
             {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto filter-sidebar-scroll">
               <div className="p-6 space-y-8">
                 {/* Category Filter */}
                 {filterOptions?.categories && (
                   <div>
                     <h4 className="text-sm font-medium text-gray-700 mb-3">Category</h4>
-                    <div className="space-y-2">
+                    <div className="space-y-2 max-h-64 overflow-y-auto relative">
                       {filterOptions.categories.map((category) => (
                         <button
                           key={category}
@@ -670,6 +670,11 @@ const AdLevelDashboard: React.FC = () => {
                           {category}
                         </button>
                       ))}
+                      
+                      {/* Fade effect for categories */}
+                      {filterOptions.categories.length > 6 && (
+                        <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white to-transparent pointer-events-none"></div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -678,7 +683,7 @@ const AdLevelDashboard: React.FC = () => {
                 {filterOptions?.content_types && (
                   <div>
                     <h4 className="text-sm font-medium text-gray-700 mb-3">Content Type</h4>
-                    <div className="space-y-2">
+                    <div className="space-y-2 max-h-48 overflow-y-auto relative">
                       {filterOptions.content_types.map((contentType) => (
                         <button
                           key={contentType}
@@ -700,7 +705,7 @@ const AdLevelDashboard: React.FC = () => {
                 {filterOptions?.formats && (
                   <div>
                     <h4 className="text-sm font-medium text-gray-700 mb-3">Format</h4>
-                    <div className="space-y-2">
+                    <div className="space-y-2 max-h-32 overflow-y-auto relative">
                       {filterOptions.formats.map((format) => (
                         <button
                           key={format}
@@ -722,7 +727,7 @@ const AdLevelDashboard: React.FC = () => {
                 {filterOptions?.campaign_optimizations && (
                   <div>
                     <h4 className="text-sm font-medium text-gray-700 mb-3">Campaign Optimization</h4>
-                    <div className="space-y-2">
+                    <div className="space-y-2 max-h-48 overflow-y-auto relative">
                       {filterOptions.campaign_optimizations.map((optimization) => (
                         <button
                           key={optimization}
@@ -736,6 +741,11 @@ const AdLevelDashboard: React.FC = () => {
                           {optimization}
                         </button>
                       ))}
+                      
+                      {/* Fade effect for campaign optimization - this is the critical one! */}
+                      {filterOptions.campaign_optimizations.length > 4 && (
+                        <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white to-transparent pointer-events-none"></div>
+                      )}
                     </div>
                   </div>
                 )}

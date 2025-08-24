@@ -591,11 +591,11 @@ const GoogleDashboard: React.FC = () => {
                   <div>
                     <div className="flex items-center justify-between mb-3">
                       <h4 className="text-sm font-medium text-gray-700 sticky top-0 bg-white py-2 -my-2 z-10">Months</h4>
-                      {dashboardData.pivot_data.length > 8 && (
+                      {dashboardData.pivot_data.length > 6 && (
                         <span className="text-xs text-gray-400 italic">Scroll to see all</span>
                       )}
                     </div>
-                    <div className="space-y-2 month-filter-container overflow-y-auto relative max-h-96">
+                    <div className="space-y-2 month-filter-container overflow-y-auto relative max-h-[32rem]">
                       {dashboardData.pivot_data
                         .slice()
                         .sort((a, b) => b.month.localeCompare(a.month))
@@ -617,7 +617,7 @@ const GoogleDashboard: React.FC = () => {
                       ))}
                       
                       {/* Fade effect for visual scroll indication */}
-                      {dashboardData.pivot_data.length > 8 && (
+                      {dashboardData.pivot_data.length > 6 && (
                         <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white to-transparent pointer-events-none"></div>
                       )}
                     </div>

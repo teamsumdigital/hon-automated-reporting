@@ -511,11 +511,11 @@ const ModernDashboard: React.FC = () => {
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <h4 className="text-sm font-medium text-gray-700 sticky top-0 bg-white py-2 -my-2 z-10">Months</h4>
-                    {data?.monthly_breakdown && data.monthly_breakdown.length > 8 && (
+                    {data?.monthly_breakdown && data.monthly_breakdown.length > 6 && (
                       <span className="text-xs text-gray-400 italic">Scroll to see all</span>
                     )}
                   </div>
-                  <div className="space-y-2 month-filter-container overflow-y-auto relative max-h-96">
+                  <div className="space-y-2 month-filter-container overflow-y-auto relative max-h-[32rem]">
                     {data?.monthly_breakdown?.sort((a: any, b: any) => b.month.localeCompare(a.month)).map((month: any) => (
                       <button
                         key={month.month}
@@ -534,7 +534,7 @@ const ModernDashboard: React.FC = () => {
                     ))}
                     
                     {/* Fade effect at bottom to indicate more content */}
-                    {data?.monthly_breakdown && data.monthly_breakdown.length > 8 && (
+                    {data?.monthly_breakdown && data.monthly_breakdown.length > 6 && (
                       <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white to-transparent pointer-events-none"></div>
                     )}
                   </div>

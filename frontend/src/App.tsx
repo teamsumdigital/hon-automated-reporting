@@ -6,7 +6,6 @@ import ModernDashboard from './pages/ModernDashboard';
 import GoogleDashboard from './pages/GoogleDashboard';
 import TikTokDashboard from './pages/TikTokDashboard';
 import AdLevelDashboard from './pages/AdLevelDashboard';
-import TikTokAdLevelDashboard from './pages/TikTokAdLevelDashboard';
 
 function App() {
   return (
@@ -20,7 +19,6 @@ function App() {
           <Route path="/google" element={<GoogleDashboard />} />
           <Route path="/tiktok" element={<TikTokDashboard />} />
           <Route path="/ad-level" element={<AdLevelDashboard />} />
-          <Route path="/tiktok-ad-level" element={<TikTokAdLevelDashboard />} />
           {/* Add more routes as needed */}
         </Routes>
       </AuthGate>

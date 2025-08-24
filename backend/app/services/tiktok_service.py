@@ -149,8 +149,8 @@ class TikTokService:
                           end_date: Optional[str] = None) -> Dict[str, Any]:
         """Get TikTok dashboard data with optional filtering"""
         
-        # Build query filters
-        query = self.supabase.table("tiktok_campaign_data").select("*")
+        # Build query filters - Now using ad-level data
+        query = self.supabase.table("tiktok_ad_data").select("*")
         
         if categories:
             category_list = [cat.strip() for cat in categories.split(",")]
@@ -172,8 +172,8 @@ class TikTokService:
         # Generate pivot table data (monthly aggregation)
         pivot_data = self._generate_pivot_data(campaigns)
         
-        # Get available categories
-        categories_result = self.supabase.table("tiktok_campaign_data")\
+        # Get available categories - Now from ad-level data
+        categories_result = self.supabase.table("tiktok_ad_data")\
             .select("category")\
             .not_.is_("category", "null")\
             .execute()
@@ -192,8 +192,8 @@ class TikTokService:
         }
     
     def get_categories(self) -> List[str]:
-        """Get all available TikTok campaign categories"""
-        result = self.supabase.table("tiktok_campaign_data")\
+        """Get all available TikTok categories from ad-level data"""
+        result = self.supabase.table("tiktok_ad_data")\
             .select("category")\
             .not_.is_("category", "null")\
             .execute()

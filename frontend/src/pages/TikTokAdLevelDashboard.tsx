@@ -4,7 +4,8 @@ import {
   ChevronDownIcon,
   InformationCircleIcon,
   ArrowUpIcon,
-  ArrowDownIcon
+  ArrowDownIcon,
+  ChevronUpIcon
 } from '@heroicons/react/24/outline';
 import Header from '../components/Header';
 
@@ -388,32 +389,23 @@ const TikTokAdLevelDashboard: React.FC = () => {
         filterPanelOpen={filterPanelOpen}
         onFilterToggle={() => setFilterPanelOpen(!filterPanelOpen)}
         showFilters={false}
+        kpiCollapsed={kpiCollapsed}
+        onKpiToggle={() => setKpiCollapsed(!kpiCollapsed)}
       />
       
       {/* Collapsible KPI Dashboard */}
-      {summary && (
-        <div className="bg-white border-b border-gray-200 p-6">
-          {/* Toggle Button */}
-          <div className="flex justify-end mb-4">
-            <button
-              onClick={() => setKpiCollapsed(!kpiCollapsed)}
-              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors duration-200"
-            >
-              {kpiCollapsed ? (
-                <ChevronRightIcon className="w-5 h-5" />
-              ) : (
-                <ChevronDownIcon className="w-5 h-5" />
-              )}
-            </button>
-          </div>
-          
-          {/* KPI Cards */}
-          <div className={`transition-all duration-300 ease-in-out ${
-            kpiCollapsed 
-              ? 'opacity-0 max-h-0 overflow-hidden transform -translate-y-2 pointer-events-none' 
-              : 'opacity-100 max-h-full transform translate-y-0'
-          }`}>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className={`transition-all duration-300 ease-in-out overflow-hidden bg-white border-b border-gray-200 ${
+        kpiCollapsed ? 'max-h-0' : 'max-h-96'
+      }`}>
+        {summary && (
+          <div className="p-2">
+            {/* KPI Cards */}
+            <div className={`transition-all duration-300 ease-in-out ${
+              kpiCollapsed 
+                ? 'transform -translate-y-4 opacity-0' 
+                : 'transform translate-y-0 opacity-100 mb-2'
+            }`}>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <KPICard
                 title="Total Spend"
                 value={formatCurrency(summary.total_spend)}
@@ -438,10 +430,11 @@ const TikTokAdLevelDashboard: React.FC = () => {
                 tooltip="Total number of TikTok ads with data"
                 color="amber"
               />
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       <div className="flex h-screen">
         {/* Filter Sidebar */}

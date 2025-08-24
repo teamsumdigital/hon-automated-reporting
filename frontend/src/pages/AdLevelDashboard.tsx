@@ -4,7 +4,8 @@ import {
   ChevronDownIcon,
   InformationCircleIcon,
   ArrowUpIcon,
-  ArrowDownIcon
+  ArrowDownIcon,
+  ChevronUpIcon
 } from '@heroicons/react/24/outline';
 import { apiClient } from '../services/api';
 import { AdData, AdLevelSummary, FilterOptions, AdLevelFilters } from '../types/adLevel';
@@ -395,32 +396,22 @@ const AdLevelDashboard: React.FC = () => {
       <Header 
         filterPanelOpen={filterPanelOpen}
         onFilterToggle={() => setFilterPanelOpen(!filterPanelOpen)}
+        kpiCollapsed={kpiCollapsed}
+        onKpiToggle={() => setKpiCollapsed(!kpiCollapsed)}
       />
 
       <div className="flex">
         {/* Main Content */}
         <div className={`flex-1 p-6 transition-all duration-300 ${filterPanelOpen ? 'mr-80' : 'mr-0'}`}>
           {/* Collapsible KPI Dashboard */}
-          <div className="mb-8">
-            {/* Toggle Button */}
-            <div className="flex justify-end mb-4">
-              <button
-                onClick={() => setKpiCollapsed(!kpiCollapsed)}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors duration-200"
-              >
-                {kpiCollapsed ? (
-                  <ChevronRightIcon className="w-5 h-5" />
-                ) : (
-                  <ChevronDownIcon className="w-5 h-5" />
-                )}
-              </button>
-            </div>
-            
+          <div className={`transition-all duration-300 ease-in-out overflow-hidden ${
+            kpiCollapsed ? 'max-h-0' : 'max-h-96 mb-1'
+          }`}>
             {/* KPI Cards */}
             <div className={`transition-all duration-300 ease-in-out ${
               kpiCollapsed 
-                ? 'opacity-0 max-h-0 overflow-hidden transform -translate-y-2 pointer-events-none' 
-                : 'opacity-100 max-h-full transform translate-y-0'
+                ? 'transform -translate-y-4 opacity-0' 
+                : 'transform translate-y-0 opacity-100 mb-2'
             }`}>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <KPICard
@@ -449,6 +440,7 @@ const AdLevelDashboard: React.FC = () => {
                 />
               </div>
             </div>
+            
           </div>
 
           {/* Table */}
@@ -642,7 +634,7 @@ const AdLevelDashboard: React.FC = () => {
         }`}>
           <div className="flex flex-col h-full">
             {/* Fixed Header */}
-            <div className="flex-shrink-0 p-6 border-b border-gray-200">
+            <div className="flex-shrink-0 p-6">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-gray-900">Filters</h3>
                 {(selectedCategories.length > 0 || selectedContentTypes.length > 0 || 

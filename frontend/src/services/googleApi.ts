@@ -32,9 +32,11 @@ export interface GooglePivotTableData {
   link_clicks: number;
   purchases: number;
   revenue: number;
+  impressions: number;
   cpa: number;
   roas: number;
   cpc: number;
+  cpm: number;
 }
 
 export interface GoogleMTDSummary {

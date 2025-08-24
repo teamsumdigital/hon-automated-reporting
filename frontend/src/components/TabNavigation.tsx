@@ -6,7 +6,7 @@ import {
   RectangleStackIcon
 } from '@heroicons/react/24/outline';
 
-export type TabType = 'meta' | 'google' | 'tiktok' | 'ad-level' | 'tiktok-ad-level';
+export type TabType = 'meta' | 'google' | 'tiktok' | 'ad-level';
 
 interface Tab {
   id: TabType;
@@ -50,13 +50,6 @@ const tabs: Tab[] = [
     icon: RectangleStackIcon,
     color: 'purple',
     description: 'Individual Meta ad performance with thumbnails and weekly breakdown'
-  },
-  {
-    id: 'tiktok-ad-level',
-    label: 'TikTok Ad Level',
-    icon: RectangleStackIcon,
-    color: 'orange',
-    description: 'Individual TikTok ad performance categorized by ad names'
   }
 ];
 
@@ -77,8 +70,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
         blue: 'text-blue-600 border-blue-500 bg-blue-50',
         green: 'text-green-600 border-green-500 bg-green-50',
         pink: 'text-pink-600 border-pink-500 bg-pink-50',
-        purple: 'text-purple-600 border-purple-500 bg-purple-50',
-        orange: 'text-orange-600 border-orange-500 bg-orange-50'
+        purple: 'text-purple-600 border-purple-500 bg-purple-50'
       };
       return `${baseClasses} ${activeColors[tab.color as keyof typeof activeColors]}`;
     }
@@ -111,8 +103,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
                     absolute bottom-0 left-0 right-0 h-0.5 
                     ${tab.color === 'blue' ? 'bg-blue-500' : 
                       tab.color === 'green' ? 'bg-green-500' : 
-                      tab.color === 'pink' ? 'bg-pink-500' : 
-                      tab.color === 'orange' ? 'bg-orange-500' : 'bg-purple-500'}
+                      tab.color === 'pink' ? 'bg-pink-500' : 'bg-purple-500'}
                   `} 
                 />
               )}

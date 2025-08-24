@@ -118,7 +118,7 @@ class TikTokAdLevelService:
                 "advertiser_id": self.advertiser_id,
                 "report_type": "BASIC",
                 "data_level": "AUCTION_AD",  # Ad-level data (not campaign-level)
-                "dimensions": json.dumps(["ad_id", "campaign_id"]),
+                "dimensions": json.dumps(["ad_id"]),  # Only ad_id dimension for ad-level data
                 "metrics": json.dumps([
                     "spend",
                     "impressions", 
@@ -159,11 +159,13 @@ class TikTokAdLevelService:
                         metrics = item.get("metrics", {})
                         
                         ad_id = str(dimensions.get("ad_id", ""))
-                        campaign_id = str(dimensions.get("campaign_id", ""))
                         
-                        # Get ad and campaign info
+                        # Get ad info (which includes campaign_id)
                         ad_info = self._get_ad_info(ad_id)
-                        campaign_info = self._get_campaign_info(campaign_id)
+                        campaign_id = ad_info.get("campaign_id", "")
+                        
+                        # Get campaign info
+                        campaign_info = self._get_campaign_info(campaign_id) if campaign_id else {"campaign_name": "Unknown Campaign"}
                         
                         ad_name = ad_info.get("ad_name", f"Ad {ad_id}")
                         campaign_name = campaign_info.get("campaign_name", f"Campaign {campaign_id}")
@@ -228,7 +230,7 @@ class TikTokAdLevelService:
                 "advertiser_id": self.advertiser_id,
                 "ad_ids": json.dumps([ad_id]),
                 "fields": json.dumps([
-                    "ad_id", "ad_name", "primary_status", "display_name",
+                    "ad_id", "ad_name", "campaign_id", "primary_status", "display_name",
                     "image_ids", "video_id"  # For thumbnail extraction
                 ])
             }
@@ -241,6 +243,7 @@ class TikTokAdLevelService:
                     ad_data = data["data"]["list"][0]
                     return {
                         "ad_name": ad_data.get("ad_name", f"Ad {ad_id}"),
+                        "campaign_id": ad_data.get("campaign_id", ""),
                         "status": ad_data.get("primary_status", "UNKNOWN"),
                         "thumbnail_url": self._extract_thumbnail_url(ad_data)
                     }
@@ -248,6 +251,7 @@ class TikTokAdLevelService:
             # Return default if API call fails
             return {
                 "ad_name": f"Ad {ad_id}",
+                "campaign_id": "",
                 "status": "UNKNOWN",
                 "thumbnail_url": None
             }
@@ -256,6 +260,7 @@ class TikTokAdLevelService:
             logger.error(f"Failed to get TikTok ad info for {ad_id}: {e}")
             return {
                 "ad_name": f"Ad {ad_id}",
+                "campaign_id": "",
                 "status": "UNKNOWN", 
                 "thumbnail_url": None
             }

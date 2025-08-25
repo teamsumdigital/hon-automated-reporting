@@ -390,12 +390,31 @@ def get_ad_level_summary(
         total_revenue = sum(ad['purchases_conversion_value'] for ad in result.data)
         total_purchases = sum(ad['purchases'] for ad in result.data)
         
+        # Calculate date range from actual ad data
+        dates_start = [ad.get('reporting_starts') for ad in result.data if ad.get('reporting_starts')]
+        dates_end = [ad.get('reporting_ends') for ad in result.data if ad.get('reporting_ends')]
+        
+        if dates_start and dates_end:
+            min_date = min(dates_start)
+            max_date = max(dates_end)
+            # Format dates to match frontend expectations (M/D/YYYY)
+            from datetime import datetime
+            try:
+                min_date_obj = datetime.strptime(min_date, '%Y-%m-%d')
+                max_date_obj = datetime.strptime(max_date, '%Y-%m-%d')
+                date_range = f"{min_date_obj.strftime('%-m/%-d/%Y')} - {max_date_obj.strftime('%-m/%-d/%Y')}"
+            except:
+                date_range = f"{min_date} - {max_date}"
+        else:
+            date_range = "No data available"
+        
         return {
             "total_spend": round(total_spend, 2),
             "total_revenue": round(total_revenue, 2),
             "avg_roas": round(total_revenue / total_spend, 2) if total_spend > 0 else 0,
             "avg_cpa": round(total_spend / total_purchases, 2) if total_purchases > 0 else 0,
-            "total_ads": len(result.data)
+            "total_ads": len(result.data),
+            "date_range": date_range
         }
         
     except Exception as e:

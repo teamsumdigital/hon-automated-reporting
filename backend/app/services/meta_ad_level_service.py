@@ -310,13 +310,18 @@ class MetaAdLevelService:
         Get ad-level data for the last 14 days with weekly segmentation
         Yesterday is the last full day in the 14-day period
         """
-        if target_date is None:
-            target_date = date.today()
+        # Force Pacific timezone to avoid UTC/server timezone issues
+        import pytz
         
-        # Calculate 14-day range ending yesterday
-        # Yesterday is the end date (last full day)
+        if target_date is None:
+            # Get current date in Pacific timezone (where business operates)
+            pacific_tz = pytz.timezone('US/Pacific')
+            pacific_now = datetime.now(pacific_tz)
+            target_date = pacific_now.date()
+        
+        # Yesterday is the end date (last full day) 
         end_date = target_date - timedelta(days=1)
-        # Start date: 14 days back from end_date (inclusive range)
+        # Start date: 13 days before end_date (gives us 14 total days)
         start_date = end_date - timedelta(days=13)
         
         # Add explicit logging to debug date calculation

@@ -313,12 +313,19 @@ class MetaAdLevelService:
         if target_date is None:
             target_date = date.today()
         
+        # Calculate 14-day range ending yesterday
         # Yesterday is the end date (last full day)
         end_date = target_date - timedelta(days=1)
-        # Start date is 14 days before yesterday
+        # Start date: 14 days back from end_date (inclusive range)
         start_date = end_date - timedelta(days=13)
         
-        logger.info(f"Fetching last 14 days of ad-level data from {start_date} to {end_date} (weekly segments)")
+        # Add explicit logging to debug date calculation
+        logger.info(f"🗓️ DATE CALCULATION DEBUG:")
+        logger.info(f"🗓️ Target date (today): {target_date}")
+        logger.info(f"🗓️ End date (yesterday): {end_date}") 
+        logger.info(f"🗓️ Start date (14 days back): {start_date}")
+        logger.info(f"🗓️ Total days in range: {(end_date - start_date).days + 1}")
+        logger.info(f"🗓️ Fetching last 14 days of ad-level data from {start_date} to {end_date} (weekly segments)")
         
         # Get ad insights data
         ad_data = self.get_ad_level_insights(start_date, end_date)

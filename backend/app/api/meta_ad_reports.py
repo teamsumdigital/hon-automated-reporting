@@ -385,10 +385,33 @@ def get_ad_level_summary(
                 "total_ads": 0
             }
         
-        # Calculate totals
-        total_spend = sum(ad['amount_spent_usd'] for ad in result.data)
-        total_revenue = sum(ad['purchases_conversion_value'] for ad in result.data)
-        total_purchases = sum(ad['purchases'] for ad in result.data)
+        # Calculate totals with same deduplication logic as ad-data endpoint
+        # Group by ad_name and date_key to avoid double-counting weekly periods
+        grouped_for_totals = {}
+        
+        for ad in result.data:
+            ad_name = ad['ad_name']
+            date_key = f"{ad['reporting_starts']}_{ad['reporting_ends']}"
+            
+            if ad_name not in grouped_for_totals:
+                grouped_for_totals[ad_name] = {
+                    'weekly_periods': {},
+                    'total_spend': 0,
+                    'total_revenue': 0,
+                    'total_purchases': 0
+                }
+            
+            # Only count each ad+date combination once (same logic as ad-data endpoint)
+            if date_key not in grouped_for_totals[ad_name]['weekly_periods']:
+                grouped_for_totals[ad_name]['weekly_periods'][date_key] = True
+                grouped_for_totals[ad_name]['total_spend'] += ad['amount_spent_usd']
+                grouped_for_totals[ad_name]['total_revenue'] += ad['purchases_conversion_value']
+                grouped_for_totals[ad_name]['total_purchases'] += ad['purchases']
+        
+        # Sum up all the deduplicated totals
+        total_spend = sum(ad_data['total_spend'] for ad_data in grouped_for_totals.values())
+        total_revenue = sum(ad_data['total_revenue'] for ad_data in grouped_for_totals.values())
+        total_purchases = sum(ad_data['total_purchases'] for ad_data in grouped_for_totals.values())
         
         # Calculate date range from actual ad data
         dates_start = [ad.get('reporting_starts') for ad in result.data if ad.get('reporting_starts')]

@@ -590,8 +590,19 @@ const AdLevelDashboard: React.FC = () => {
                     // Weekly period rows (only if expanded)
                     if (isExpanded && ad.weekly_periods) {
                       ad.weekly_periods.forEach((period, periodIndex) => {
-                        const periodStart = new Date(period.reporting_starts).toLocaleDateString();
-                        const periodEnd = new Date(period.reporting_ends).toLocaleDateString();
+                        // Format dates directly from ISO string to avoid timezone issues
+                        const formatDateFromISO = (dateStr: string) => {
+                          const date = new Date(dateStr + 'T00:00:00'); // Force midnight to avoid timezone shift
+                          return date.toLocaleDateString('en-US', {
+                            month: 'numeric',
+                            day: 'numeric',
+                            year: 'numeric',
+                            timeZone: 'UTC'
+                          });
+                        };
+                        
+                        const periodStart = formatDateFromISO(period.reporting_starts);
+                        const periodEnd = formatDateFromISO(period.reporting_ends);
                         
                         rows.push(
                           <tr key={`${ad.ad_name}-period-${periodIndex}`} className="bg-blue-25 hover:bg-blue-50 transition-colors">

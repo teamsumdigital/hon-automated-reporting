@@ -357,7 +357,11 @@ def get_ad_level_summary(
     Get overall KPI summary for ad-level dashboard
     """
     try:
-        query = supabase.table('meta_ad_data').select('*')
+        # Only get data from the last 14 days (same as ad-data endpoint)
+        from datetime import datetime, timedelta
+        cutoff_date = (datetime.now() - timedelta(days=14)).strftime('%Y-%m-%d')
+        
+        query = supabase.table('meta_ad_data').select('*').gte('reporting_starts', cutoff_date)
         
         # Apply filters
         if categories:

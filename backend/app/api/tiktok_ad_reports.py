@@ -165,7 +165,9 @@ def get_tiktok_ad_level_summary(
     categories: Optional[str] = None,
     content_types: Optional[str] = None,
     formats: Optional[str] = None,
-    campaign_optimizations: Optional[str] = None
+    campaign_optimizations: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None
 ):
     """
     Get TikTok ad-level summary metrics with optional filtering
@@ -173,8 +175,17 @@ def get_tiktok_ad_level_summary(
     try:
         service = TikTokAdLevelService()
         
-        # For now, return basic summary (can be enhanced with filtering later)
-        summary = service.get_summary_metrics()
+        # Parse category filter
+        category_filter = None
+        if categories:
+            category_filter = [cat.strip() for cat in categories.split(",")]
+        
+        # Get summary with filters applied
+        summary = service.get_summary_metrics(
+            categories=category_filter,
+            start_date=start_date,
+            end_date=end_date
+        )
         
         return {
             "status": "success",

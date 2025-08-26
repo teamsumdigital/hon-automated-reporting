@@ -49,8 +49,8 @@ async def get_tiktok_dashboard_data(
         if end_date:
             filters.end_date = end_date
         
-        # Get month-to-date summary
-        summary = reporting_service.get_month_to_date_summary()
+        # Get month-to-date summary with category filters applied
+        summary = reporting_service.get_month_to_date_summary(filters)
         
         # Get pivot table data
         pivot_data = reporting_service.generate_pivot_table_data(filters)

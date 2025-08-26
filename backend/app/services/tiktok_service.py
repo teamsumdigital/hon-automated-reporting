@@ -149,8 +149,9 @@ class TikTokService:
                           end_date: Optional[str] = None) -> Dict[str, Any]:
         """Get TikTok dashboard data with optional filtering"""
         
-        # Build query filters - Now using ad-level data
-        query = self.supabase.table("tiktok_ad_data").select("*")
+        # Build query filters - Now using ad-level data  
+        query = self.supabase.table("tiktok_ad_data").select("*").limit(50000)
+        print(f"🔧 TikTok service query with limit 50000")
         
         if categories:
             category_list = [cat.strip() for cat in categories.split(",")]
@@ -165,6 +166,7 @@ class TikTokService:
         # Execute query
         result = query.execute()
         campaigns = result.data
+        print(f"🔧 TikTok service retrieved {len(campaigns)} total campaigns")
         
         # Calculate summary metrics
         summary = self._calculate_summary_metrics(campaigns)
@@ -176,6 +178,7 @@ class TikTokService:
         categories_result = self.supabase.table("tiktok_ad_data")\
             .select("category")\
             .not_.is_("category", "null")\
+            .limit(10000)\
             .execute()
         
         unique_categories = list(set([row["category"] for row in categories_result.data if row["category"]]))
@@ -196,6 +199,7 @@ class TikTokService:
         result = self.supabase.table("tiktok_ad_data")\
             .select("category")\
             .not_.is_("category", "null")\
+            .limit(10000)\
             .execute()
         
         categories = list(set([row["category"] for row in result.data if row["category"]]))

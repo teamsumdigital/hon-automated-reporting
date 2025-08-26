@@ -96,7 +96,7 @@ const TikTokDashboard: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-  }, [selectedCategories]);
+  }, [selectedCategories]); // Refetch when categories change
 
   // Scroll detection for hiding KPI cards
   useEffect(() => {
@@ -114,11 +114,20 @@ const TikTokDashboard: React.FC = () => {
       ? 'http://localhost:8007' 
       : 'https://hon-automated-reporting.onrender.com';
     
-    const categoryParams = selectedCategories.length > 0 
-      ? `?categories=${selectedCategories.join(',')}&_t=${Date.now()}` 
-      : `?_t=${Date.now()}`;
+    // Build query parameters with current month filtering by default
+    const params = new URLSearchParams();
+    params.append('_t', Date.now().toString());
     
-    fetch(`${API_BASE_URL}/api/tiktok-reports/dashboard${categoryParams}`, {
+    if (selectedCategories.length > 0) {
+      params.append('categories', selectedCategories.join(','));
+    }
+    
+    // Add current month filtering by default (similar to TikTok Ad Level dashboard)
+    const currentDate = new Date();
+    const currentMonth = currentDate.toISOString().slice(0, 7); // YYYY-MM format
+    params.append('start_date', `${currentMonth}-01`);
+    
+    fetch(`${API_BASE_URL}/api/tiktok-reports/dashboard?${params.toString()}`, {
       headers: {
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Pragma': 'no-cache',
@@ -241,7 +250,8 @@ const TikTokDashboard: React.FC = () => {
     ? data?.pivot_data?.filter((month: any) => selectedMonths.includes(month.month)) || []
     : data?.pivot_data || [];
 
-  const currentTotals = selectedCategories.length > 0 || selectedMonths.length > 0
+  // Calculate month-filtered totals if months are selected (categories are handled by backend refetch)
+  const currentTotals = selectedMonths.length > 0
     ? calculateFilteredTotals(filteredMonthlyData)
     : data?.summary;
 

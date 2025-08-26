@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Frontend Date Conversion</title>
+</head>
+<body>
+    <h1>Testing JavaScript Date Conversion</h1>
+    <div id="results"></div>
+    
+    <script>
+        // Test the same conversion the frontend is using
+        const testDates = {
+            'correct_start': '2025-08-11',
+            'correct_end': '2025-08-17',
+            'correct_start2': '2025-08-18', 
+            'correct_end2': '2025-08-24'
+        };
+        
+        const results = document.getElementById('results');
+        
+        Object.entries(testDates).forEach(([key, dateStr]) => {
+            const dateObj = new Date(dateStr);
+            const converted = dateObj.toLocaleDateString();
+            const convertedOptions = dateObj.toLocaleDateString('en-US', {
+                month: 'numeric',
+                day: 'numeric', 
+                year: 'numeric',
+                timeZone: 'UTC'
+            });
+            
+            results.innerHTML += `<p><strong>${key}:</strong> ${dateStr} -> ${converted} (local) | ${convertedOptions} (UTC)</p>`;
+        });
+        
+        // Test what would produce the wrong dates we're seeing
+        results.innerHTML += '<h2>Reverse Engineering Wrong Dates:</h2>';
+        
+        // If we're seeing 8/10/2025, what date string would produce that?
+        const wrongDate1 = new Date('2025-08-10');
+        const wrongDate2 = new Date('2025-08-16');
+        
+        results.innerHTML += `<p>Wrong date 8/10: ${wrongDate1.toLocaleDateString()}</p>`;
+        results.innerHTML += `<p>Wrong date 8/16: ${wrongDate2.toLocaleDateString()}</p>`;
+        
+        // Test timezone offset
+        const testDate = new Date('2025-08-11');
+        results.innerHTML += `<p>Timezone offset: ${testDate.getTimezoneOffset()} minutes</p>`;
+        results.innerHTML += `<p>UTC string: ${testDate.toUTCString()}</p>`;
+        results.innerHTML += `<p>ISO string: ${testDate.toISOString()}</p>`;
+    </script>
+</body>
+</html>

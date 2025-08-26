@@ -56,15 +56,15 @@ class TikTokReportingService:
             logger.error(f"Failed to store TikTok campaign data: {e}")
             return False
     
-    def get_campaign_data(
+    def get_monthly_aggregates(
         self, 
         filters: Optional[TikTokDashboardFilters] = None
-    ) -> List[TikTokCampaignDataResponse]:
+    ) -> Dict[str, Dict]:
         """
-        Get TikTok campaign data with optional filters
+        Get TikTok ads aggregated by month - much simpler approach
         """
         try:
-            query = self.supabase.table("tiktok_campaign_data").select("*")
+            query = self.supabase.table("tiktok_ad_data").select("*")
             
             if filters:
                 if filters.categories:
@@ -74,30 +74,100 @@ class TikTokReportingService:
                 if filters.end_date:
                     query = query.lte("reporting_ends", filters.end_date.isoformat())
             
-            result = query.order("reporting_starts", desc=False).execute()  # Excel-style: oldest first
+            result = query.execute()
             
-            campaigns = []
+            # Simple monthly aggregation
+            monthly_totals = {}
+            processed_ads = set()  # Deduplicate by ad_id + period
+            
             for row in result.data:
+                # Deduplicate
+                ad_period_key = f"{row['ad_id']}_{row['reporting_starts']}_{row['reporting_ends']}"
+                if ad_period_key in processed_ads:
+                    continue
+                processed_ads.add(ad_period_key)
+                
+                # Get month key
+                month_key = datetime.fromisoformat(row["reporting_starts"]).strftime("%Y-%m")
+                
+                # Initialize month if needed
+                if month_key not in monthly_totals:
+                    monthly_totals[month_key] = {
+                        'spend': 0.0,
+                        'revenue': 0.0,
+                        'purchases': 0,
+                        'clicks': 0,
+                        'impressions': 0,
+                        'ads_count': 0
+                    }
+                
+                # Add to monthly totals
+                monthly_totals[month_key]['spend'] += float(row["amount_spent_usd"])
+                monthly_totals[month_key]['revenue'] += float(row["purchases_conversion_value"])
+                monthly_totals[month_key]['purchases'] += row["website_purchases"]
+                monthly_totals[month_key]['clicks'] += row["link_clicks"]
+                monthly_totals[month_key]['impressions'] += row["impressions"]
+                monthly_totals[month_key]['ads_count'] += 1
+            
+            return monthly_totals
+            
+        except Exception as e:
+            logger.error(f"Failed to get TikTok monthly aggregates: {e}")
+            return {}
+
+    def get_campaign_data(
+        self, 
+        filters: Optional[TikTokDashboardFilters] = None
+    ) -> List[TikTokCampaignDataResponse]:
+        """
+        Get TikTok campaign data with optional filters - now uses monthly aggregates
+        """
+        try:
+            monthly_totals = self.get_monthly_aggregates(filters)
+            
+            # Convert to campaign-like objects for compatibility
+            campaigns = []
+            for month_key, totals in monthly_totals.items():
+                # Calculate derived metrics
+                spend = totals['spend']
+                revenue = totals['revenue']
+                purchases = totals['purchases']
+                clicks = totals['clicks']
+                
+                cpa = spend / purchases if purchases > 0 else 0.0
+                roas = revenue / spend if spend > 0 else 0.0
+                cpc = spend / clicks if clicks > 0 else 0.0
+                
+                # Create month dates
+                year, month_num = map(int, month_key.split('-'))
+                month_start = date(year, month_num, 1)
+                if month_num == 12:
+                    month_end = date(year + 1, 1, 1) - timedelta(days=1)
+                else:
+                    month_end = date(year, month_num + 1, 1) - timedelta(days=1)
+                
                 campaign = TikTokCampaignDataResponse(
-                    id=row["id"],
-                    campaign_id=row["campaign_id"],
-                    campaign_name=row["campaign_name"],
-                    category=row["category"],
-                    reporting_starts=datetime.fromisoformat(row["reporting_starts"]).date(),
-                    reporting_ends=datetime.fromisoformat(row["reporting_ends"]).date(),
-                    amount_spent_usd=Decimal(str(row["amount_spent_usd"])),
-                    website_purchases=row["website_purchases"],
-                    purchases_conversion_value=Decimal(str(row["purchases_conversion_value"])),
-                    impressions=row["impressions"],
-                    link_clicks=row["link_clicks"],
-                    cpa=Decimal(str(row["cpa"])),
-                    roas=Decimal(str(row["roas"])),
-                    cpc=Decimal(str(row["cpc"])),
-                    created_at=datetime.fromisoformat(row["created_at"]),
-                    updated_at=datetime.fromisoformat(row["updated_at"])
+                    id=0,
+                    campaign_id=f"month_{month_key}",
+                    campaign_name=f"TikTok Ads - {month_key}",
+                    category="All TikTok Ads",
+                    reporting_starts=month_start,
+                    reporting_ends=month_end,
+                    amount_spent_usd=Decimal(str(spend)),
+                    website_purchases=purchases,
+                    purchases_conversion_value=Decimal(str(revenue)),
+                    impressions=totals['impressions'],
+                    link_clicks=clicks,
+                    cpa=Decimal(str(cpa)),
+                    roas=Decimal(str(roas)),
+                    cpc=Decimal(str(cpc)),
+                    created_at=datetime.now(),
+                    updated_at=datetime.now()
                 )
                 campaigns.append(campaign)
             
+            # Sort by month (newest first)
+            campaigns.sort(key=lambda x: x.reporting_starts, reverse=True)
             return campaigns
             
         except Exception as e:
@@ -164,38 +234,37 @@ class TikTokReportingService:
             logger.error(f"Failed to generate TikTok pivot table data: {e}")
             return []
     
-    def get_month_to_date_summary(self) -> Dict:
+    def get_month_to_date_summary(self, filters: Optional[TikTokDashboardFilters] = None) -> Dict:
         """
-        Get month-to-date summary for TikTok Ads
+        Get TikTok Ads summary with optional filtering - uses simple monthly aggregates
         """
         try:
-            current_date = date.today()
-            month_start = current_date.replace(day=1)
+            monthly_totals = self.get_monthly_aggregates(filters)
             
-            # Get current month data
-            campaigns = self.get_campaign_data(
-                TikTokDashboardFilters(start_date=month_start, end_date=current_date)
-            )
+            # Sum across all months returned (allows for flexible filtering)
+            total_spend = sum(month['spend'] for month in monthly_totals.values())
+            total_revenue = sum(month['revenue'] for month in monthly_totals.values())
+            total_purchases = sum(month['purchases'] for month in monthly_totals.values())
+            total_clicks = sum(month['clicks'] for month in monthly_totals.values())
+            total_impressions = sum(month['impressions'] for month in monthly_totals.values())
+            total_ads = sum(month['ads_count'] for month in monthly_totals.values())
             
-            total_spend = sum(campaign.amount_spent_usd for campaign in campaigns)
-            total_clicks = sum(campaign.link_clicks for campaign in campaigns)
-            total_purchases = sum(campaign.website_purchases for campaign in campaigns)
-            total_revenue = sum(campaign.purchases_conversion_value for campaign in campaigns)
-            
-            avg_cpa = total_spend / total_purchases if total_purchases > 0 else Decimal('0')
-            avg_roas = total_revenue / total_spend if total_spend > 0 else Decimal('0')
-            avg_cpc = total_spend / total_clicks if total_clicks > 0 else Decimal('0')
+            # Calculate averages
+            avg_cpa = total_spend / total_purchases if total_purchases > 0 else 0.0
+            avg_roas = total_revenue / total_spend if total_spend > 0 else 0.0
+            avg_cpc = total_spend / total_clicks if total_clicks > 0 else 0.0
             
             return {
-                "period": f"{current_date.strftime('%B %Y')} (Month-to-Date)",
-                "total_spend": float(total_spend),
+                "period": "TikTok Ads Summary",
+                "total_spend": total_spend,
                 "total_clicks": total_clicks,
                 "total_purchases": total_purchases,
-                "total_revenue": float(total_revenue),
-                "avg_cpa": float(avg_cpa),
-                "avg_roas": float(avg_roas),
-                "avg_cpc": float(avg_cpc),
-                "campaigns_count": len(campaigns)
+                "total_revenue": total_revenue,
+                "avg_cpa": avg_cpa,
+                "avg_roas": avg_roas,
+                "avg_cpc": avg_cpc,
+                "campaigns_count": len(monthly_totals),  # Number of months with data
+                "total_ads": total_ads
             }
             
         except Exception as e:
@@ -207,7 +276,7 @@ class TikTokReportingService:
         Get all unique categories from TikTok campaign data
         """
         try:
-            result = self.supabase.table("tiktok_campaign_data").select("category").execute()
+            result = self.supabase.table("tiktok_ad_data").select("category").execute()
             
             categories = list(set([
                 row["category"] for row in result.data 
@@ -226,12 +295,12 @@ class TikTokReportingService:
         Get statistics about TikTok data in database
         """
         try:
-            # Get total campaigns
-            campaigns_result = self.supabase.table("tiktok_campaign_data").select("id", count="exact").execute()
-            total_campaigns = campaigns_result.count
+            # Get total ads (changed from campaigns since we're using ad-level data)
+            ads_result = self.supabase.table("tiktok_ad_data").select("id", count="exact").execute()
+            total_ads = ads_result.count
             
             # Get date range
-            date_result = self.supabase.table("tiktok_campaign_data").select("reporting_starts, reporting_ends").order("reporting_starts").execute()
+            date_result = self.supabase.table("tiktok_ad_data").select("reporting_starts, reporting_ends").order("reporting_starts").execute()
             
             earliest_date = None
             latest_date = None
@@ -241,11 +310,11 @@ class TikTokReportingService:
                 latest_date = date_result.data[-1]["reporting_ends"]
             
             # Get unique categories
-            categories_result = self.supabase.table("tiktok_campaign_data").select("category").execute()
+            categories_result = self.supabase.table("tiktok_ad_data").select("category").execute()
             unique_categories = len(set([row["category"] for row in categories_result.data if row["category"]]))
             
             return {
-                "total_campaigns": total_campaigns,
+                "total_ads": total_ads,  # Changed from total_campaigns
                 "earliest_date": earliest_date,
                 "latest_date": latest_date,
                 "unique_categories": unique_categories,
@@ -256,31 +325,31 @@ class TikTokReportingService:
             logger.error(f"Failed to get TikTok data stats: {e}")
             return {}
     
-    def delete_campaign_data(
+    def delete_ad_data(
         self,
         start_date: date,
         end_date: date,
-        campaign_ids: Optional[List[str]] = None
+        ad_ids: Optional[List[str]] = None
     ) -> bool:
         """
-        Delete TikTok campaign data for specified date range
+        Delete TikTok ad data for specified date range (updated to use ad-level data)
         """
         try:
-            query = self.supabase.table("tiktok_campaign_data").delete()
+            query = self.supabase.table("tiktok_ad_data").delete()
             query = query.gte("reporting_starts", start_date.isoformat())
             query = query.lte("reporting_ends", end_date.isoformat())
             
-            if campaign_ids:
-                query = query.in_("campaign_id", campaign_ids)
+            if ad_ids:
+                query = query.in_("ad_id", ad_ids)
             
             result = query.execute()
             deleted_count = len(result.data) if result.data else 0
             
-            logger.info(f"Deleted {deleted_count} TikTok campaign records from {start_date} to {end_date}")
+            logger.info(f"Deleted {deleted_count} TikTok ad records from {start_date} to {end_date}")
             return True
             
         except Exception as e:
-            logger.error(f"Failed to delete TikTok campaign data: {e}")
+            logger.error(f"Failed to delete TikTok ad data: {e}")
             return False
     
     def get_performance_comparison(self, months: int = 6) -> Dict:

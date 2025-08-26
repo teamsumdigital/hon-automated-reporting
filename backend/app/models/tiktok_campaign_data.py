@@ -81,6 +81,16 @@ class TikTokPivotTableData(BaseModel):
     roas: Decimal
     cpc: Decimal
 
+    def model_dump(self, **kwargs):
+        """Convert Decimal fields to float for JSON serialization"""
+        data = super().model_dump(**kwargs)
+        data['spend'] = float(self.spend)
+        data['revenue'] = float(self.revenue)
+        data['cpa'] = float(self.cpa)
+        data['roas'] = float(self.roas)
+        data['cpc'] = float(self.cpc)
+        return data
+
 class TikTokDashboardFilters(BaseModel):
     """Filters for TikTok Ads dashboard - same as Meta/Google"""
     categories: Optional[List[str]] = None

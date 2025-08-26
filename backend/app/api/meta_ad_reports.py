@@ -189,9 +189,9 @@ def get_ad_level_data(
     Get ad-level data grouped by ad name with weekly periods
     """
     try:
-        # Only get data from the last 14 days
+        # Get data from the last 15 days to ensure we capture both full weeks
         from datetime import datetime, timedelta
-        cutoff_date = (datetime.now() - timedelta(days=14)).strftime('%Y-%m-%d')
+        cutoff_date = (datetime.now() - timedelta(days=15)).strftime('%Y-%m-%d')
         
         # Build base query
         base_query = supabase.table('meta_ad_data').select('*').gte('reporting_starts', cutoff_date)
@@ -357,9 +357,9 @@ def get_ad_level_summary(
     Get overall KPI summary for ad-level dashboard
     """
     try:
-        # Only get data from the last 14 days (same as ad-data endpoint)
+        # Get data from the last 15 days to ensure we capture both full weeks (same as ad-data endpoint)
         from datetime import datetime, timedelta
-        cutoff_date = (datetime.now() - timedelta(days=14)).strftime('%Y-%m-%d')
+        cutoff_date = (datetime.now() - timedelta(days=15)).strftime('%Y-%m-%d')
         
         query = supabase.table('meta_ad_data').select('*').gte('reporting_starts', cutoff_date)
         

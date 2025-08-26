@@ -171,6 +171,11 @@ const TikTokAdLevelDashboard: React.FC = () => {
       if (selectedCategories.length > 0) {
         params.append('categories', selectedCategories.join(','));
       }
+      
+      // Add current month filter - August 2025
+      const currentDate = new Date();
+      const currentMonth = currentDate.toISOString().slice(0, 7); // YYYY-MM format
+      params.append('start_date', `${currentMonth}-01`);
 
       // Fetch ad-level data
       const adDataResponse = await fetch(`/api/tiktok-ad-reports/ad-data?${params.toString()}`);
@@ -179,7 +184,7 @@ const TikTokAdLevelDashboard: React.FC = () => {
       }
       const adDataResult = await adDataResponse.json();
 
-      // Fetch summary
+      // Fetch summary (uses same date filter as ad data)
       const summaryResponse = await fetch(`/api/tiktok-ad-reports/summary?${params.toString()}`);
       if (!summaryResponse.ok) {
         throw new Error(`Failed to fetch summary: ${summaryResponse.status}`);

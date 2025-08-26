@@ -334,8 +334,13 @@ class TikTokAdLevelService:
             if categories:
                 query = query.in_("category", categories)
             
+            # Apply date filters if provided, otherwise default to current month
             if start_date:
                 query = query.gte("reporting_starts", start_date)
+            elif not start_date and not end_date:
+                # Default to current month if no dates specified
+                current_month_start = date.today().replace(day=1)
+                query = query.gte("reporting_starts", current_month_start.strftime('%Y-%m-%d'))
                 
             if end_date:
                 query = query.lte("reporting_ends", end_date)
@@ -425,16 +430,31 @@ class TikTokAdLevelService:
             logger.error(f"Error fetching TikTok ad data: {e}")
             raise Exception(f"Failed to fetch TikTok ad data: {str(e)}")
     
-    def get_summary_metrics(self) -> Dict[str, Any]:
-        """Get summary metrics for TikTok ad-level data"""
+    def get_summary_metrics(self, 
+                           categories: Optional[List[str]] = None,
+                           start_date: Optional[str] = None,
+                           end_date: Optional[str] = None) -> Dict[str, Any]:
+        """Get summary metrics for TikTok ad-level data with optional filtering"""
         try:
-            # Get all ad data for current month
-            current_month_start = date.today().replace(day=1)
+            # Build query with filters (similar to get_ad_level_data)
+            query = self.supabase.table("tiktok_ad_data").select("*")
             
-            result = self.supabase.table("tiktok_ad_data")\
-                .select("*")\
-                .gte("reporting_starts", current_month_start.strftime('%Y-%m-%d'))\
-                .execute()
+            # Apply category filter if provided
+            if categories:
+                query = query.in_("category", categories)
+            
+            # Apply date filters if provided, otherwise default to current month
+            if start_date:
+                query = query.gte("reporting_starts", start_date)
+            elif not start_date and not end_date:
+                # Default to current month if no dates specified
+                current_month_start = date.today().replace(day=1)
+                query = query.gte("reporting_starts", current_month_start.strftime('%Y-%m-%d'))
+                
+            if end_date:
+                query = query.lte("reporting_ends", end_date)
+            
+            result = query.execute()
             
             ads_data = result.data
             
@@ -451,12 +471,41 @@ class TikTokAdLevelService:
                     "ads_count": 0
                 }
             
-            # Calculate summary metrics
-            total_spend = sum(ad['amount_spent_usd'] for ad in ads_data)
-            total_revenue = sum(ad['purchases_conversion_value'] for ad in ads_data)
-            total_purchases = sum(ad['website_purchases'] for ad in ads_data)
-            total_clicks = sum(ad['link_clicks'] for ad in ads_data)
-            total_impressions = sum(ad['impressions'] for ad in ads_data)
+            # Calculate summary metrics with deduplication (same logic as get_ad_level_data)
+            # Group by ad_name and date to avoid double-counting weekly periods
+            grouped_data = {}
+            
+            for ad in ads_data:
+                ad_id = ad['ad_id']
+                date_key = f"{ad['reporting_starts']}_{ad['reporting_ends']}"
+                
+                if ad_id not in grouped_data:
+                    grouped_data[ad_id] = {
+                        'weekly_periods': {},
+                        'total_spend': 0,
+                        'total_revenue': 0,
+                        'total_purchases': 0,
+                        'total_clicks': 0,
+                        'total_impressions': 0
+                    }
+                
+                # Add weekly period data (avoiding duplicates)
+                if date_key not in grouped_data[ad_id]['weekly_periods']:
+                    grouped_data[ad_id]['weekly_periods'][date_key] = True
+                    
+                    # Add to totals (only once per ad per date period)
+                    grouped_data[ad_id]['total_spend'] += ad['amount_spent_usd']
+                    grouped_data[ad_id]['total_revenue'] += ad['purchases_conversion_value']
+                    grouped_data[ad_id]['total_purchases'] += ad['website_purchases']
+                    grouped_data[ad_id]['total_clicks'] += ad['link_clicks']
+                    grouped_data[ad_id]['total_impressions'] += ad['impressions']
+            
+            # Sum up all the deduplicated totals
+            total_spend = sum(ad_data['total_spend'] for ad_data in grouped_data.values())
+            total_revenue = sum(ad_data['total_revenue'] for ad_data in grouped_data.values())
+            total_purchases = sum(ad_data['total_purchases'] for ad_data in grouped_data.values())
+            total_clicks = sum(ad_data['total_clicks'] for ad_data in grouped_data.values())
+            total_impressions = sum(ad_data['total_impressions'] for ad_data in grouped_data.values())
             
             avg_roas = total_revenue / total_spend if total_spend > 0 else 0
             avg_cpa = total_spend / total_purchases if total_purchases > 0 else 0
@@ -471,7 +520,7 @@ class TikTokAdLevelService:
                 "avg_roas": round(avg_roas, 4),
                 "avg_cpa": round(avg_cpa, 2),
                 "avg_cpc": round(avg_cpc, 4),
-                "ads_count": len(set(ad['ad_id'] for ad in ads_data))
+                "ads_count": len(grouped_data)
             }
             
         except Exception as e:

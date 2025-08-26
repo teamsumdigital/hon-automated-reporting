@@ -363,22 +363,48 @@ def get_ad_level_summary(
         
         query = supabase.table('meta_ad_data').select('*').gte('reporting_starts', cutoff_date)
         
-        # Apply filters
+        # Apply filters to base query
+        base_query = query
         if categories:
             category_list = categories.split(',')
-            query = query.in_('category', category_list)
+            base_query = base_query.in_('category', category_list)
         if content_types:
             content_type_list = content_types.split(',')
-            query = query.in_('content_type', content_type_list)
+            base_query = base_query.in_('content_type', content_type_list)
         if formats:
             format_list = formats.split(',')
-            query = query.in_('format', format_list)
+            base_query = base_query.in_('format', format_list)
         if campaign_optimizations:
             optimization_list = campaign_optimizations.split(',')
-            query = query.in_('campaign_optimization', optimization_list)
+            base_query = base_query.in_('campaign_optimization', optimization_list)
         
-        # Use range to ensure we get all records (bypasses 1000 record limit)
-        result = query.range(0, 9999).execute()
+        # IMPORTANT: Paginate to get all records (Supabase has 1000 record limit per request)
+        # Use same pagination logic as ad-data endpoint
+        all_data = []
+        page_size = 500
+        offset = 0
+        
+        while True:
+            paginated_query = base_query.order('ad_name').order('reporting_starts').range(offset, offset + page_size - 1)
+            batch_result = paginated_query.execute()
+            
+            if not batch_result.data:
+                break
+                
+            all_data.extend(batch_result.data)
+            
+            # If we got less than page_size records, we've reached the end
+            if len(batch_result.data) < page_size:
+                break
+                
+            offset += page_size
+            
+            # Safety limit to prevent infinite loops
+            if offset > 10000:
+                logger.warning(f"Reached safety limit while paginating summary data")
+                break
+        
+        result = type('Result', (), {'data': all_data})()
         
         if not result.data:
             return {

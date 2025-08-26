@@ -448,7 +448,7 @@ const AdLevelDashboard: React.FC = () => {
             <div className="px-4 py-3 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-base font-semibold text-gray-900">Ad-Level Performance</h2>
+                  <h2 className="text-base font-semibold text-gray-900">Ad-Level Performance (Last 14 Days by Week)</h2>
                   <p className="text-xs text-gray-500">
                     {adData.length} ads • Click to expand weekly breakdown
                   </p>

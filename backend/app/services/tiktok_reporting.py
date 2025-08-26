@@ -146,6 +146,7 @@ class TikTokReportingService:
                 else:
                     month_end = date(year, month_num + 1, 1) - timedelta(days=1)
                 
+                # Round values properly for Pydantic validation
                 campaign = TikTokCampaignDataResponse(
                     id=0,
                     campaign_id=f"month_{month_key}",
@@ -153,14 +154,14 @@ class TikTokReportingService:
                     category="All TikTok Ads",
                     reporting_starts=month_start,
                     reporting_ends=month_end,
-                    amount_spent_usd=Decimal(str(spend)),
+                    amount_spent_usd=Decimal(str(round(spend, 2))),
                     website_purchases=purchases,
-                    purchases_conversion_value=Decimal(str(revenue)),
+                    purchases_conversion_value=Decimal(str(round(revenue, 2))),
                     impressions=totals['impressions'],
                     link_clicks=clicks,
-                    cpa=Decimal(str(cpa)),
-                    roas=Decimal(str(roas)),
-                    cpc=Decimal(str(cpc)),
+                    cpa=Decimal(str(round(cpa, 2))),
+                    roas=Decimal(str(round(roas, 4))),
+                    cpc=Decimal(str(round(cpc, 4))),
                     created_at=datetime.now(),
                     updated_at=datetime.now()
                 )

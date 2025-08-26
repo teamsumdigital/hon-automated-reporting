@@ -2,11 +2,12 @@
 
 from fastapi import APIRouter, HTTPException, Query
 from typing import Optional, List, Dict, Any
-from datetime import datetime, timedelta
-from ....services.tiktok_service import TikTokService
+from datetime import datetime, timedelta, date
+from ....services.tiktok_reporting import TikTokReportingService
+from ....models.tiktok_campaign_data import TikTokDashboardFilters
 
 router = APIRouter()
-tiktok_service = TikTokService()
+tiktok_service = TikTokReportingService()
 
 
 @router.get("/dashboard")
@@ -16,17 +17,49 @@ async def get_tiktok_dashboard(
     end_date: Optional[str] = Query(None, description="End date in YYYY-MM-DD format")
 ) -> Dict[str, Any]:
     """
-    Get TikTok dashboard data with optional filtering
+    Get TikTok dashboard data with optional filtering using the standardized TikTokReportingService
     
     Returns summary metrics, pivot table data, and category breakdown
     """
     try:
-        dashboard_data = tiktok_service.get_dashboard_data(
-            categories=categories,
-            start_date=start_date,
-            end_date=end_date
-        )
-        return dashboard_data
+        # Build filters for the new service
+        filters = None
+        if categories or start_date or end_date:
+            filters = TikTokDashboardFilters()
+            if categories:
+                filters.categories = [cat.strip() for cat in categories.split(",")]
+            if start_date:
+                filters.start_date = datetime.strptime(start_date, "%Y-%m-%d").date()
+            if end_date:
+                filters.end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
+        
+        # Get data from the standardized service
+        summary = tiktok_service.get_month_to_date_summary(filters)
+        pivot_data = tiktok_service.generate_pivot_table_data(filters)
+        categories_list = tiktok_service.get_available_categories()
+        
+        # Convert pivot data to the format expected by frontend
+        pivot_data_formatted = []
+        for pivot in pivot_data:
+            pivot_data_formatted.append({
+                "month": pivot.month,
+                "spend": float(pivot.spend),
+                "link_clicks": pivot.link_clicks,
+                "purchases": pivot.purchases,
+                "revenue": float(pivot.revenue),
+                "cpa": float(pivot.cpa),
+                "roas": float(pivot.roas),
+                "cpc": float(pivot.cpc),
+                "impressions": 0  # TikTok reporting service doesn't track impressions in pivot data
+            })
+        
+        return {
+            "summary": summary,
+            "pivot_data": pivot_data_formatted,
+            "categories": categories_list,
+            "category_breakdown": []  # Not implemented in new service yet
+        }
+        
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving TikTok dashboard data: {str(e)}")
 
@@ -36,11 +69,31 @@ async def get_tiktok_monthly_data(
     categories: Optional[str] = Query(None, description="Comma-separated list of categories to filter by")
 ) -> List[Dict[str, Any]]:
     """
-    Get TikTok monthly aggregated data for pivot table
+    Get TikTok monthly aggregated data for pivot table using the standardized service
     """
     try:
-        dashboard_data = tiktok_service.get_dashboard_data(categories=categories)
-        return dashboard_data["pivot_data"]
+        filters = None
+        if categories:
+            filters = TikTokDashboardFilters()
+            filters.categories = [cat.strip() for cat in categories.split(",")]
+        
+        pivot_data = tiktok_service.generate_pivot_table_data(filters)
+        
+        # Convert to the format expected by frontend
+        formatted_data = []
+        for pivot in pivot_data:
+            formatted_data.append({
+                "month": pivot.month,
+                "spend": float(pivot.spend),
+                "link_clicks": pivot.link_clicks,
+                "purchases": pivot.purchases,
+                "revenue": float(pivot.revenue),
+                "cpa": float(pivot.cpa),
+                "roas": float(pivot.roas),
+                "cpc": float(pivot.cpc)
+            })
+        
+        return formatted_data
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving TikTok monthly data: {str(e)}")
 
@@ -48,10 +101,10 @@ async def get_tiktok_monthly_data(
 @router.get("/categories")
 async def get_tiktok_categories() -> Dict[str, List[str]]:
     """
-    Get all available TikTok campaign categories
+    Get all available TikTok campaign categories from the standardized service
     """
     try:
-        categories = tiktok_service.get_categories()
+        categories = tiktok_service.get_available_categories()
         return {"categories": categories}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving TikTok categories: {str(e)}")

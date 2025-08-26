@@ -3,6 +3,7 @@
 from fastapi import APIRouter, HTTPException, Query
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta, date
+from loguru import logger
 from ....services.tiktok_reporting import TikTokReportingService
 from ....models.tiktok_campaign_data import TikTokDashboardFilters
 
@@ -22,20 +23,31 @@ async def get_tiktok_dashboard(
     Returns summary metrics, pivot table data, and category breakdown
     """
     try:
-        # Build filters for the new service
-        filters = None
-        if categories or start_date or end_date:
-            filters = TikTokDashboardFilters()
-            if categories:
-                filters.categories = [cat.strip() for cat in categories.split(",")]
-            if start_date:
-                filters.start_date = datetime.strptime(start_date, "%Y-%m-%d").date()
-            if end_date:
-                filters.end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
+        # Build filters for table data (all historical data)
+        table_filters = None
+        if categories:
+            table_filters = TikTokDashboardFilters()
+            table_filters.categories = [cat.strip() for cat in categories.split(",")]
         
-        # Get data from the standardized service
-        summary = tiktok_service.get_month_to_date_summary(filters)
-        pivot_data = tiktok_service.generate_pivot_table_data(filters)
+        # Build filters for KPI summary (current month only for summary)
+        summary_filters = TikTokDashboardFilters()
+        if categories:
+            summary_filters.categories = [cat.strip() for cat in categories.split(",")]
+        
+        # Always filter summary to current month (August 2025) for KPI cards  
+        from datetime import date
+        current_date = date.today()
+        current_month_start = current_date.replace(day=1)
+        summary_filters.start_date = current_month_start
+        
+        logger.info(f"TikTok dashboard: filtering summary to {current_month_start}")
+        
+        # Get summary for current month only (KPI cards)
+        summary = tiktok_service.get_month_to_date_summary(summary_filters)
+        logger.info(f"TikTok summary result: ${summary.get('total_spend', 0):,.2f} spend")
+        
+        # Get all historical data for table (Jan 2024 - Aug 2025)  
+        pivot_data = tiktok_service.generate_pivot_table_data(table_filters)
         categories_list = tiktok_service.get_available_categories()
         
         # Convert pivot data to the format expected by frontend

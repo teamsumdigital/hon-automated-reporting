@@ -114,7 +114,7 @@ const TikTokDashboard: React.FC = () => {
       ? 'http://localhost:8007' 
       : 'https://hon-automated-reporting.onrender.com';
     
-    // Build query parameters with current month filtering by default
+    // Build query parameters - DO NOT add date filtering to show all historical data
     const params = new URLSearchParams();
     params.append('_t', Date.now().toString());
     
@@ -122,10 +122,8 @@ const TikTokDashboard: React.FC = () => {
       params.append('categories', selectedCategories.join(','));
     }
     
-    // Add current month filtering by default (similar to TikTok Ad Level dashboard)
-    const currentDate = new Date();
-    const currentMonth = currentDate.toISOString().slice(0, 7); // YYYY-MM format
-    params.append('start_date', `${currentMonth}-01`);
+    // Note: Removed start_date filter to show all months (Jan 2024 - Aug 2025)
+    // The backend will show all 19 months in the table while KPIs show current totals
     
     fetch(`${API_BASE_URL}/api/tiktok-reports/dashboard?${params.toString()}`, {
       headers: {

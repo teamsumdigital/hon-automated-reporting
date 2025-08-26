@@ -64,23 +64,41 @@ class TikTokReportingService:
         Get TikTok ads aggregated by month - much simpler approach
         """
         try:
-            query = self.supabase.table("tiktok_ad_data").select("*")
+            # Use pagination to get ALL ads (Supabase has 1000 row default limit)
+            all_ads = []
+            page_size = 1000
+            offset = 0
             
-            if filters:
-                if filters.categories:
-                    query = query.in_("category", filters.categories)
-                if filters.start_date:
-                    query = query.gte("reporting_starts", filters.start_date.isoformat())
-                if filters.end_date:
-                    query = query.lte("reporting_ends", filters.end_date.isoformat())
+            while True:
+                query = self.supabase.table("tiktok_ad_data").select("*").range(offset, offset + page_size - 1)
+                
+                if filters:
+                    if filters.categories:
+                        query = query.in_("category", filters.categories)
+                    if filters.start_date:
+                        query = query.gte("reporting_starts", filters.start_date.isoformat())
+                    if filters.end_date:
+                        query = query.lte("reporting_ends", filters.end_date.isoformat())
+                
+                result = query.execute()
+                
+                if not result.data:
+                    break
+                    
+                all_ads.extend(result.data)
+                
+                if len(result.data) < page_size:
+                    break
+                    
+                offset += page_size
             
-            result = query.execute()
+            logger.info(f"Retrieved {len(all_ads)} total TikTok ads with pagination")
             
             # Simple monthly aggregation
             monthly_totals = {}
             processed_ads = set()  # Deduplicate by ad_id + period
             
-            for row in result.data:
+            for row in all_ads:
                 # Deduplicate
                 ad_period_key = f"{row['ad_id']}_{row['reporting_starts']}_{row['reporting_ends']}"
                 if ad_period_key in processed_ads:

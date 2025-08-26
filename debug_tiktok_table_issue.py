@@ -10,8 +10,8 @@ def test_tiktok_dashboard():
     print("🔍 DEBUGGING TIKTOK TABLE ISSUE")
     print("=" * 50)
     
-    # Test the dashboard endpoint with current month filter
-    response = requests.get('http://localhost:8007/api/tiktok-reports/dashboard?start_date=2025-08-01&_t=123')
+    # Test the dashboard endpoint without date filter (matches frontend behavior)
+    response = requests.get('http://localhost:8007/api/tiktok-reports/dashboard?_t=123')
     if response.status_code != 200:
         print(f"❌ API Error: {response.status_code}")
         return

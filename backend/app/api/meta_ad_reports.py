@@ -121,7 +121,8 @@ def perform_14_day_sync():
                 'purchases_conversion_value': ad['purchases_conversion_value'],
                 'impressions': ad['impressions'],
                 'link_clicks': ad['link_clicks'],
-                'thumbnail_url': ad.get('thumbnail_url')
+                'thumbnail_url': ad.get('thumbnail_url'),
+                'thumbnail_url_high_res': ad.get('thumbnail_url_high_res')
             }
             insert_data.append(insert_record)
         
@@ -262,6 +263,7 @@ def get_ad_level_data(
                     'campaign_optimization': ad['campaign_optimization'],
                     'days_live': ad['days_live'],
                     'thumbnail_url': ad.get('thumbnail_url'),
+                    'thumbnail_url_high_res': ad.get('thumbnail_url_high_res'),
                     'status': ad.get('status'),
                     'weekly_periods': {},  # Use dict to prevent duplicates
                     'total_spend': 0,

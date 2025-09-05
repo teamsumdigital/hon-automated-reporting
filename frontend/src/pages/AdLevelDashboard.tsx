@@ -93,6 +93,7 @@ const AdLevelDashboard: React.FC = () => {
   const [sortColumn, setSortColumn] = useState<string | null>('total_spend');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [isScrolled, setIsScrolled] = useState(false);
+  const [hoveredThumbnail, setHoveredThumbnail] = useState<string | null>(null);
 
   // Filter states
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -534,14 +535,30 @@ const AdLevelDashboard: React.FC = () => {
                               }
                             </button>
                             {ad.thumbnail_url ? (
-                              <img 
-                                src={ad.thumbnail_url} 
-                                alt={ad.ad_name}
-                                className="w-8 h-8 rounded object-cover border border-gray-200"
-                                onError={(e) => {
-                                  e.currentTarget.style.display = 'none';
-                                }}
-                              />
+                              <div
+                                className="relative"
+                                onMouseEnter={() => setHoveredThumbnail(ad.ad_name)}
+                                onMouseLeave={() => setHoveredThumbnail(null)}
+                              >
+                                <img
+                                  src={ad.thumbnail_url}
+                                  alt={ad.ad_name}
+                                  className="w-8 h-8 rounded object-cover border border-gray-200"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                  }}
+                                />
+                                {hoveredThumbnail === ad.ad_name && ad.thumbnail_url_high_res && (
+                                  <div className="absolute z-10 top-0 left-9">
+                                    <img
+                                      src={ad.thumbnail_url_high_res}
+                                      alt={ad.ad_name}
+                                      className="w-24 h-auto rounded border border-gray-200 shadow-lg"
+                                      loading="lazy"
+                                    />
+                                  </div>
+                                )}
+                              </div>
                             ) : (
                               <div className="w-8 h-8 rounded bg-gray-100 border border-gray-200 flex items-center justify-center">
                                 <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

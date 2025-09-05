@@ -22,6 +22,7 @@ export interface AdData {
   campaign_optimization: string;
   days_live: number;
   thumbnail_url?: string;
+  thumbnail_url_high_res?: string;
   status?: string | null; // 'winner', 'considering', 'paused', 'paused_last_week', or null
   weekly_periods: WeeklyPeriod[];
   total_spend: number;

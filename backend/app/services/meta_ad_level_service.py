@@ -7,6 +7,8 @@ from facebook_business.adobjects.campaign import Campaign
 from facebook_business.adobjects.ad import Ad
 from facebook_business.adobjects.adsinsights import AdsInsights
 from facebook_business.adobjects.adcreative import AdCreative
+from facebook_business.adobjects.adimage import AdImage
+from facebook_business.adobjects.advideo import AdVideo
 from facebook_business.exceptions import FacebookRequestError
 from loguru import logger
 from decimal import Decimal
@@ -343,14 +345,16 @@ class MetaAdLevelService:
             logger.info(f"🖼️ Fetching thumbnails for {len(ad_ids)} unique ads")
             logger.info(f"🖼️ First 5 ad IDs: {ad_ids[:5]}")
             thumbnails = self.get_ad_thumbnails(ad_ids)
-            
+
             # Add thumbnail URLs to ad data
             for ad in ad_data:
                 ad_id = ad.get('ad_id')
                 if ad_id and ad_id in thumbnails:
-                    ad['thumbnail_url'] = thumbnails[ad_id]
+                    ad['thumbnail_url'] = thumbnails[ad_id]['small']
+                    ad['thumbnail_url_high_res'] = thumbnails[ad_id]['high']
                 else:
                     ad['thumbnail_url'] = None
+                    ad['thumbnail_url_high_res'] = None
         else:
             logger.info("No ad IDs found, skipping thumbnail fetch")
         
@@ -396,55 +400,102 @@ class MetaAdLevelService:
             logger.error(f"Ad-level service connection test failed: {e}")
             return False
     
-    def get_ad_thumbnails(self, ad_ids: List[str]) -> Dict[str, str]:
+    def get_ad_thumbnails(self, ad_ids: List[str]) -> Dict[str, Dict[str, str]]:
         """
         Fetch thumbnail URLs for a list of ad IDs
-        Returns dict mapping ad_id to thumbnail_url
+        Returns dict mapping ad_id to {"small": <url>, "high": <url>}
+
+        Small URL: lightweight variant for table display
+        High URL: permalink_url or largest video thumbnail for hover preview
         """
-        thumbnails = {}
-        
+        thumbnails: Dict[str, Dict[str, str]] = {}
+
         # Process in batches to avoid rate limits
         batch_size = 10
         for i in range(0, len(ad_ids), batch_size):
             batch = ad_ids[i:i + batch_size]
-            
+
             for ad_id in batch:
                 try:
                     ad = Ad(ad_id)
-                    
-                    # Get ad creatives for this ad
+
                     creatives = ad.get_ad_creatives(fields=[
                         AdCreative.Field.thumbnail_url,
                         AdCreative.Field.image_url,
-                        AdCreative.Field.object_story_spec
+                        AdCreative.Field.object_story_spec,
+                        AdCreative.Field.image_hash,
+                        AdCreative.Field.video_id,
                     ])
-                    
-                    if creatives and len(creatives) > 0:
-                        creative = creatives[0]  # Use first creative
-                        
-                        # Try thumbnail_url first, fallback to image_url
-                        thumbnail_url = creative.get('thumbnail_url')
-                        if not thumbnail_url:
-                            thumbnail_url = creative.get('image_url')
-                        
-                        # If still no URL, try extracting from object_story_spec
-                        if not thumbnail_url and 'object_story_spec' in creative:
-                            object_story = creative['object_story_spec']
-                            if 'link_data' in object_story and 'picture' in object_story['link_data']:
-                                thumbnail_url = object_story['link_data']['picture']
-                        
-                        if thumbnail_url:
-                            thumbnails[ad_id] = thumbnail_url
-                            logger.debug(f"Found thumbnail for ad {ad_id}: {thumbnail_url}")
+
+                    if creatives:
+                        creative = creatives[0]
+                        object_story = creative.get('object_story_spec', {})
+
+                        # Default low-res thumbnail
+                        thumbnail_url = creative.get('thumbnail_url') or creative.get('image_url')
+                        if not thumbnail_url and 'link_data' in object_story and 'picture' in object_story['link_data']:
+                            thumbnail_url = object_story['link_data']['picture']
+
+                        high_res_url = None
+
+                        # -------- Static image handling --------
+                        image_hash = creative.get('image_hash') or \
+                                     object_story.get('link_data', {}).get('image_hash')
+                        if image_hash:
+                            try:
+                                image = AdImage(image_hash)
+                                image_info = image.api_get(fields=['permalink_url'])
+                                high_res_url = image_info.get('permalink_url')
+                            except Exception as e:
+                                logger.debug(f"AdImage lookup failed for ad {ad_id}: {e}")
+
+                        # -------- Video handling --------
+                        if not high_res_url:
+                            video_id = creative.get('video_id') or \
+                                       object_story.get('video_data', {}).get('video_id')
+                            if video_id:
+                                try:
+                                    video = AdVideo(video_id)
+                                    thumbs = video.get_thumbnails(fields=['uri', 'height', 'width'])
+                                    if thumbs:
+                                        largest = max(
+                                            thumbs,
+                                            key=lambda t: int(t.get('width', 0)) * int(t.get('height', 0))
+                                        )
+                                        high_res_url = largest.get('uri')
+                                        if not thumbnail_url:
+                                            thumbnail_url = thumbs[0].get('uri')
+                                except Exception as e:
+                                    logger.debug(f"Video thumbnail fetch failed for ad {ad_id}: {e}")
+
+                        # -------- Dynamic product ads fallback --------
+                        if not high_res_url and 'link_data' in object_story:
+                            link_data = object_story['link_data']
+                            if 'picture' in link_data:
+                                high_res_url = link_data['picture']
+                            elif link_data.get('child_attachments'):
+                                child = link_data['child_attachments'][0]
+                                high_res_url = child.get('picture')
+                            if high_res_url and not thumbnail_url:
+                                thumbnail_url = high_res_url
+
+                        if thumbnail_url or high_res_url:
+                            thumbnails[ad_id] = {
+                                'small': thumbnail_url or high_res_url,
+                                'high': high_res_url or thumbnail_url,
+                            }
+                            logger.debug(
+                                f"Found thumbnails for ad {ad_id}: small={thumbnails[ad_id]['small']}, high={thumbnails[ad_id]['high']}"
+                            )
                         else:
                             logger.debug(f"No thumbnail found for ad {ad_id}")
                     else:
                         logger.debug(f"No creatives found for ad {ad_id}")
-                        
+
                 except FacebookRequestError as e:
                     logger.warning(f"Facebook API error fetching creative for ad {ad_id}: {e}")
                 except Exception as e:
                     logger.warning(f"Error fetching creative for ad {ad_id}: {e}")
-        
+
         logger.info(f"Retrieved {len(thumbnails)} thumbnails out of {len(ad_ids)} requested ads")
         return thumbnails

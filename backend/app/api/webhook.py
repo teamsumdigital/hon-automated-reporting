@@ -29,15 +29,16 @@ async def handle_n8n_webhook(
     Handle webhook triggers from n8n workflows
     """
     try:
-        logger.info(f"Received n8n webhook: {payload.trigger}")
+        logger.info(f"🎯 WEBHOOK RECEIVED: trigger='{payload.trigger}', target_date='{payload.target_date}', metadata={payload.metadata}")
         
         # Parse target date if provided
         target_date = None
         if payload.target_date:
             try:
                 target_date = date.fromisoformat(payload.target_date)
+                logger.info(f"📅 Parsed target date: {target_date}")
             except ValueError:
-                logger.error(f"Invalid date format: {payload.target_date}")
+                logger.error(f"❌ Invalid date format: {payload.target_date}")
         
         if payload.trigger == "scheduled_sync":
             # Schedule background task for data sync
@@ -62,18 +63,24 @@ async def handle_n8n_webhook(
             import asyncio
             import threading
             
+            logger.info(f"🚀 STARTING 14-DAY SYNC THREAD - trigger received, creating background thread...")
+            
             # Start sync in separate thread to avoid blocking n8n
             def start_sync():
                 try:
+                    logger.info(f"🧵 SYNC THREAD STARTED - about to run async sync process...")
                     asyncio.run(sync_14_day_ad_data_background(payload.metadata))
+                    logger.info(f"✅ SYNC THREAD COMPLETED - async sync process finished successfully")
                 except Exception as e:
-                    logger.error(f"❌ Critical error in sync thread: {e}", exc_info=True)
+                    logger.error(f"❌ CRITICAL ERROR IN SYNC THREAD: {e}", exc_info=True)
+                    logger.error(f"❌ THREAD CRASH DETAILS: {str(e)}")
                     global _sync_status
                     _sync_status["in_progress"] = False
                     _sync_status["last_message"] = f"Thread crashed: {str(e)}"
             
             thread = threading.Thread(target=start_sync, daemon=True)
             thread.start()
+            logger.info(f"🎯 THREAD LAUNCHED - sync running in background, returning response to n8n...")
             
             return {
                 "status": "accepted",
@@ -128,21 +135,27 @@ async def sync_14_day_ad_data_background(metadata: Optional[Dict[str, Any]]):
         _sync_status["started_at"] = datetime.now().isoformat()
         _sync_status["last_message"] = "Starting 14-day ad-level data sync"
         
-        logger.info("Starting 14-day ad-level data sync with enhanced parsing")
+        logger.info("🎯 SYNC PROCESS STARTED - 14-day ad-level data sync with enhanced parsing")
+        logger.info(f"⏰ SYNC START TIME: {_sync_status['started_at']}")
+        logger.info(f"📊 METADATA RECEIVED: {metadata}")
         
         from ..services.meta_ad_level_service import MetaAdLevelService
         from supabase import create_client
         
         # Initialize services
+        logger.info("🔧 INITIALIZING SERVICES - MetaAdLevelService and Supabase client...")
         meta_service = MetaAdLevelService()
         supabase_url = os.getenv('SUPABASE_URL')
         supabase_key = os.getenv('SUPABASE_SERVICE_KEY')
+        logger.info(f"🔗 SUPABASE CONFIG: URL={supabase_url[:30]}..., Key={'*' * 20}")
         supabase = create_client(supabase_url, supabase_key)
+        logger.info("✅ SERVICES INITIALIZED - Ready to fetch data")
         
         # Fetch 14-day ad data with weekly segmentation
         _sync_status["last_message"] = "Fetching 14-day data with weekly segments"
-        logger.info("📊 Fetching 14-day data with weekly segments...")
+        logger.info("📊 FETCHING DATA - Starting 14-day data retrieval with weekly segments...")
         real_ad_data = meta_service.get_last_14_days_ad_data()
+        logger.info(f"📥 DATA FETCH COMPLETE - Retrieved data: {type(real_ad_data)}, Length check pending...")
         
         if not real_ad_data:
             logger.warning("⚠️ No ad data found")

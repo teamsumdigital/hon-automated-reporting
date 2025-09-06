@@ -185,8 +185,8 @@ class TikTokAdLevelService:
                         cpc = spend / clicks if clicks > 0 else 0
                         cpm = float(metrics.get("cpm", 0))
                         
-                        # Categorize based on ad name (not campaign name)
-                        category = self.categorization_service.categorize_ad(ad_name, ad_id, "tiktok")
+                        # Categorize based on both ad name and campaign name
+                        category = self.categorization_service.categorize_ad(ad_name, ad_id, "tiktok", campaign_name)
                         
                         ad_data = {
                             "ad_id": ad_id,

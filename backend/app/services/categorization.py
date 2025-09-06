@@ -41,41 +41,90 @@ class CategorizationService:
             logger.error(f"Error categorizing campaign {campaign_name}: {e}")
             return 'Uncategorized'
     
-    def categorize_ad(self, ad_name: str, ad_id: str, platform: str = "tiktok") -> str:
+    def categorize_ad(self, ad_name: str, ad_id: str, platform: str = "tiktok", campaign_name: str = "") -> str:
         """
-        Categorize an ad based on ad name (for TikTok ads where campaign names don't contain product info)
+        Categorize an ad based on ad name and campaign name (TikTok uses structured format)
         """
         try:
-            # For TikTok ads, categorize based on ad name using hardcoded rules
-            # since ad names contain the product information that campaign names lack
+            logger.debug(f"Categorizing {platform} ad '{ad_name}' with campaign '{campaign_name}'")
+            
+            # For TikTok ads with structured format: "Date - Category - Product - Color - etc."
+            # STRUCTURED FORMAT TAKES ABSOLUTE PRECEDENCE - NO FALLBACK OVERRIDES
+            if platform == "tiktok" and " - " in ad_name:
+                parts = ad_name.split(" - ")
+                if len(parts) >= 2:
+                    # The SECOND part is the category indicator
+                    category_part = parts[1].strip().lower()
+                    
+                    # Direct mapping based on structured format - FINAL DECISION
+                    if category_part == "standing mat":
+                        category = 'Standing Mats'
+                        logger.info(f"Ad '{ad_name}' -> '{category}' (STRUCTURED FORMAT MATCH: standing mat)")
+                        return category
+                    elif category_part == "playmat":
+                        category = 'Play Mats'
+                        logger.info(f"Ad '{ad_name}' -> '{category}' (STRUCTURED FORMAT MATCH: playmat)")
+                        return category
+                    elif category_part == "bath":
+                        category = 'Bath Mats'
+                        logger.info(f"Ad '{ad_name}' -> '{category}' (STRUCTURED FORMAT MATCH: bath)")
+                        return category
+                    elif category_part == "tumbling mat":
+                        category = 'Tumbling Mats'
+                        logger.info(f"Ad '{ad_name}' -> '{category}' (STRUCTURED FORMAT MATCH: tumbling mat)")
+                        return category
+                    elif category_part == "play furniture":
+                        category = 'Play Furniture'
+                        logger.info(f"Ad '{ad_name}' -> '{category}' (STRUCTURED FORMAT MATCH: play furniture)")
+                        return category
+                    elif category_part == "multi":
+                        category = 'Multi Category'
+                        logger.info(f"Ad '{ad_name}' -> '{category}' (STRUCTURED FORMAT MATCH: multi)")
+                        return category
+                    else:
+                        logger.info(f"Ad '{ad_name}' -> structured format found but no category match for '{category_part}', continuing to fallback")
+            
+            # Fallback to keyword-based categorization ONLY if structured format didn't match
             ad_name_lower = ad_name.lower()
+            campaign_name_lower = campaign_name.lower() if campaign_name else ""
             
-            logger.debug(f"Categorizing {platform} ad '{ad_name}'")
+            # For campaigns with multiple categories, use the FIRST one mentioned
+            if campaign_name_lower:
+                if "play and tumbling" in campaign_name_lower:
+                    category = 'Play Mats'  # Play is mentioned first
+                    logger.info(f"Ad '{ad_name}' -> '{category}' (campaign: play and tumbling)")
+                    return category
+                elif "standing and bath" in campaign_name_lower:
+                    category = 'Standing Mats'  # Standing is mentioned first
+                    logger.info(f"Ad '{ad_name}' -> '{category}' (campaign: standing and bath)")
+                    return category
             
-            # TikTok-specific ad name categorization rules
-            # Play Mats - look for "play" AND "mat" but not "tumbling"
-            if 'play' in ad_name_lower and 'mat' in ad_name_lower and 'tumbling' not in ad_name_lower:
-                category = 'Play Mats'
-                logger.info(f"Ad '{ad_name}' -> '{category}' (play+mat pattern)")
-                return category
-            
-            # Tumbling Mats - specific keyword
-            if 'tumbling' in ad_name_lower:
+            # Simple keyword matching as last resort
+            if 'tumbling' in ad_name_lower or 'tumbling' in campaign_name_lower:
                 category = 'Tumbling Mats'
-                logger.info(f"Ad '{ad_name}' -> '{category}' (tumbling pattern)")
+                source = "ad_name" if 'tumbling' in ad_name_lower else "campaign_name"
+                logger.info(f"Ad '{ad_name}' -> '{category}' (tumbling keyword in {source})")
                 return category
             
-            # Standing Mats - standing desk mats
-            if 'standing' in ad_name_lower or 'desk' in ad_name_lower:
+            if 'standing' in ad_name_lower or 'standing' in campaign_name_lower:
                 category = 'Standing Mats'
-                logger.info(f"Ad '{ad_name}' -> '{category}' (standing/desk pattern)")
+                source = "ad_name" if 'standing' in ad_name_lower else "campaign_name"
+                logger.info(f"Ad '{ad_name}' -> '{category}' (standing keyword in {source})")
                 return category
             
-            # Bath Mats
-            if 'bath' in ad_name_lower:
+            if 'bath' in ad_name_lower or 'bath' in campaign_name_lower:
                 category = 'Bath Mats'
-                logger.info(f"Ad '{ad_name}' -> '{category}' (bath pattern)")
+                source = "ad_name" if 'bath' in ad_name_lower else "campaign_name"
+                logger.info(f"Ad '{ad_name}' -> '{category}' (bath keyword in {source})")
                 return category
+            
+            if (('play' in ad_name_lower and 'mat' in ad_name_lower) or 
+                ('play' in campaign_name_lower)):
+                category = 'Play Mats'
+                source = "ad_name" if ('play' in ad_name_lower and 'mat' in ad_name_lower) else "campaign_name"
+                logger.info(f"Ad '{ad_name}' -> '{category}' (play+mat pattern in {source})")
+                return category
+            
             
             # Play Furniture
             if 'play' in ad_name_lower and 'furniture' in ad_name_lower:

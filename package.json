@@ -1,6 +1,18 @@
 {
+  "name": "hon-thumbnail-testing",
+  "version": "1.0.0",
+  "description": "Playwright testing for HON Automated Reporting thumbnail enhancement system",
+  "main": "test_thumbnail_enhancement.js",
+  "scripts": {
+    "test-thumbnails": "node test_thumbnail_enhancement.js",
+    "install-playwright": "npx playwright install"
+  },
   "dependencies": {
     "node-fetch": "^3.3.2",
-    "puppeteer": "^24.16.2"
-  }
+    "puppeteer": "^24.16.2",
+    "playwright": "^1.40.0"
+  },
+  "keywords": ["playwright", "thumbnails", "testing", "meta-ads"],
+  "author": "HON Automated Reporting Team",
+  "license": "MIT"
 }

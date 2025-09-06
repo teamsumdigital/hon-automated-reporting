@@ -137,8 +137,11 @@ class MetaAdLevelService:
         campaigns: Optional[List[str]] = None
     ) -> List[Dict[str, Any]]:
         """
-        Fetch ad-level insights for a specific account with weekly segmentation
+        Fetch ad-level insights for a specific account with weekly segmentation and rate limit handling
         """
+        import time
+        from facebook_business.exceptions import FacebookRequestError
+        
         try:
             params = {
                 'time_range': {
@@ -165,7 +168,7 @@ class MetaAdLevelService:
                 'level': 'ad',
                 'time_increment': 7,  # Weekly segments (7 days)
                 'breakdowns': [],
-                'limit': 1000
+                'limit': 500  # Reduced from 1000 to avoid rate limits
             }
             
             if campaigns:
@@ -177,7 +180,34 @@ class MetaAdLevelService:
                     }
                 ]
             
-            insights = ad_account.get_insights(params=params)
+            # Rate limit handling with exponential backoff
+            max_retries = 3
+            base_delay = 60  # Start with 1 minute
+            
+            for attempt in range(max_retries + 1):
+                try:
+                    logger.info(f"🔄 API REQUEST: Fetching insights from {account_name} (attempt {attempt + 1})")
+                    insights = ad_account.get_insights(params=params)
+                    break  # Success, exit retry loop
+                    
+                except FacebookRequestError as e:
+                    error_code = getattr(e, 'api_error_code', None)
+                    error_subcode = getattr(e, 'api_error_subcode', None)
+                    
+                    # Rate limit error codes: 4, 17, 32, 613, 80004
+                    if error_code in [4, 17, 32, 613, 80004] or 'rate limit' in str(e).lower():
+                        if attempt < max_retries:
+                            delay = base_delay * (2 ** attempt)  # Exponential backoff
+                            logger.warning(f"⚠️ RATE LIMIT HIT: {account_name} - waiting {delay}s before retry {attempt + 1}/{max_retries}")
+                            logger.warning(f"⚠️ Error details: Code {error_code}, Subcode {error_subcode}")
+                            time.sleep(delay)
+                            continue
+                        else:
+                            logger.error(f"❌ RATE LIMIT EXHAUSTED: {account_name} - all {max_retries} retries failed")
+                            raise
+                    else:
+                        # Non-rate-limit error, don't retry
+                        raise
             
             results = []
             for insight in insights:
@@ -269,10 +299,13 @@ class MetaAdLevelService:
         campaigns: Optional[List[str]] = None
     ) -> List[Dict[str, Any]]:
         """
-        Fetch ad-level insights from Meta Ads API for the specified date range
+        Fetch ad-level insights from Meta Ads API for the specified date range with rate limit protection
         """
+        import time
+        
         try:
             # Fetch from primary account
+            logger.info("🔄 FETCHING PRIMARY ACCOUNT DATA")
             primary_results = self._fetch_ad_insights_for_account(
                 self.ad_account,
                 f"Primary ({self.account_id})",
@@ -284,6 +317,12 @@ class MetaAdLevelService:
             # Fetch from secondary account if configured
             secondary_results = []
             if self.secondary_ad_account:
+                # Add delay between accounts to respect rate limits
+                account_delay = 10  # 10 second delay between accounts
+                logger.info(f"⏱️ ACCOUNT DELAY: Waiting {account_delay}s before fetching secondary account...")
+                time.sleep(account_delay)
+                
+                logger.info("🔄 FETCHING SECONDARY ACCOUNT DATA")
                 secondary_results = self._fetch_ad_insights_for_account(
                     self.secondary_ad_account,
                     f"Secondary ({self.secondary_account_id})",
@@ -295,7 +334,7 @@ class MetaAdLevelService:
             # Combine results from both accounts
             all_results = primary_results + secondary_results
             
-            logger.info(f"Retrieved {len(primary_results)} ad insights from primary account, {len(secondary_results)} from secondary account (total: {len(all_results)})")
+            logger.info(f"✅ ACCOUNT DATA COMPLETE: {len(primary_results)} from primary, {len(secondary_results)} from secondary (total: {len(all_results)})")
             return all_results
             
         except FacebookRequestError as e:
@@ -396,55 +435,201 @@ class MetaAdLevelService:
             logger.error(f"Ad-level service connection test failed: {e}")
             return False
     
+    def _upgrade_thumbnail_url(self, original_url: str, ad_id: str) -> str:
+        """
+        Try to upgrade a Facebook thumbnail URL to a larger size by manipulating URL parameters
+        """
+        import re
+        
+        try:
+            # Facebook CDN URLs have size parameters we can modify
+            # Common patterns:
+            # 1. stp=dst-emg0_p64x64_q75 -> stp=dst-emg0_p320x320_q75 (increase size)
+            # 2. _nc_ht=scontent-X.xx.fbcdn.net/v/...&oh=... -> try larger variants
+            
+            upgraded_url = original_url
+            
+            # Method 1: Replace p64x64 with larger sizes in stp parameter (most common)
+            if 'p64x64' in original_url:
+                # Try progressively larger sizes
+                for target_size in ['p400x400', 'p320x320', 'p200x200']:
+                    test_url = original_url.replace('p64x64', target_size)
+                    if test_url != original_url:
+                        logger.info(f"🔧 URL upgrade for ad {ad_id}: p64x64 → {target_size}")
+                        upgraded_url = test_url
+                        break
+            
+            # Method 2: For scontent URLs with dst-emg0 pattern
+            elif 'scontent-' in original_url and 'dst-emg0_p64x64' in original_url:
+                upgraded_url = re.sub(r'dst-emg0_p64x64_q\d+', 'dst-emg0_p400x400_q75', original_url)
+                if upgraded_url != original_url:
+                    logger.info(f"🔧 URL upgrade for ad {ad_id}: dst-emg0 p64x64 → p400x400")
+            
+            # Method 3: Handle the specific pattern from your URL
+            elif 'stp=c0.5000x0.5000f_dst-emg0_p64x64' in original_url:
+                upgraded_url = original_url.replace('stp=c0.5000x0.5000f_dst-emg0_p64x64', 'stp=c0.5000x0.5000f_dst-emg0_p400x400')
+                if upgraded_url != original_url:
+                    logger.info(f"🔧 URL upgrade for ad {ad_id}: stp parameter p64x64 → p400x400")
+            
+            # Method 4: Generic p64x64 replacement in stp parameters
+            elif 'stp=' in original_url and 'p64x64' in original_url:
+                upgraded_url = re.sub(r'p64x64', 'p400x400', original_url)
+                if upgraded_url != original_url:
+                    logger.info(f"🔧 URL upgrade for ad {ad_id}: generic p64x64 → p400x400")
+            
+            # Method 5: For other Facebook CDN patterns, try adding size parameters
+            elif '.fbcdn.net' in original_url:
+                if '&stp=' not in original_url and '?stp=' not in original_url:
+                    separator = '&' if '?' in original_url else '?'
+                    upgraded_url = f"{original_url}{separator}stp=dst-jpg_p400x400"
+                    logger.info(f"🔧 URL upgrade for ad {ad_id}: added size parameter")
+            
+            return upgraded_url
+            
+        except Exception as e:
+            logger.warning(f"Failed to upgrade thumbnail URL for ad {ad_id}: {e}")
+            return original_url
+    
     def get_ad_thumbnails(self, ad_ids: List[str]) -> Dict[str, str]:
         """
-        Fetch thumbnail URLs for a list of ad IDs
+        Fetch high-resolution thumbnail URLs for a list of ad IDs
+        Uses Facebook's image_crops and account images for best quality
         Returns dict mapping ad_id to thumbnail_url
         """
+        import time
+        from facebook_business.exceptions import FacebookRequestError
+        
         thumbnails = {}
         
-        # Process in batches to avoid rate limits
-        batch_size = 10
+        # STEP 1: Get account images for hash matching (high-resolution originals)
+        account_images = {}
+        try:
+            logger.info(f"🖼️ Fetching account images for hash matching...")
+            images = self.ad_account.get_ad_images(fields=[
+                'id', 'hash', 'url', 'width', 'height', 'original_width', 'original_height'
+            ], params={'limit': 500})
+            
+            for img in images:
+                if 'hash' in img:
+                    account_images[img['hash']] = img
+                    
+            logger.info(f"✅ Loaded {len(account_images)} account images for hash matching")
+        except Exception as e:
+            logger.warning(f"⚠️ Could not load account images: {e}")
+        
+        # STEP 2: Process ads in batches with rate limit handling
+        batch_size = 5
+        batch_delay = 2
+        
         for i in range(0, len(ad_ids), batch_size):
             batch = ad_ids[i:i + batch_size]
+            batch_num = i // batch_size + 1
+            total_batches = (len(ad_ids) + batch_size - 1) // batch_size
+            
+            logger.info(f"🖼️ THUMBNAIL BATCH {batch_num}/{total_batches}: Processing {len(batch)} ads")
             
             for ad_id in batch:
-                try:
-                    ad = Ad(ad_id)
-                    
-                    # Get ad creatives for this ad
-                    creatives = ad.get_ad_creatives(fields=[
-                        AdCreative.Field.thumbnail_url,
-                        AdCreative.Field.image_url,
-                        AdCreative.Field.object_story_spec
-                    ])
-                    
-                    if creatives and len(creatives) > 0:
-                        creative = creatives[0]  # Use first creative
+                max_retries = 2
+                base_delay = 30
+                
+                for attempt in range(max_retries + 1):
+                    try:
+                        ad = Ad(ad_id)
                         
-                        # Try thumbnail_url first, fallback to image_url
-                        thumbnail_url = creative.get('thumbnail_url')
-                        if not thumbnail_url:
-                            thumbnail_url = creative.get('image_url')
+                        # Get ad creatives with comprehensive image fields
+                        creatives = ad.get_ad_creatives(fields=[
+                            AdCreative.Field.thumbnail_url,      # 64x64 fallback
+                            AdCreative.Field.image_url,          # Sometimes larger
+                            AdCreative.Field.image_crops,        # Multiple sizes (our best bet!)
+                            AdCreative.Field.image_hash,         # For account image matching
+                            AdCreative.Field.object_story_spec,  # Contains link_data.picture
+                            'image_file'                         # Original file reference
+                        ])
                         
-                        # If still no URL, try extracting from object_story_spec
-                        if not thumbnail_url and 'object_story_spec' in creative:
-                            object_story = creative['object_story_spec']
-                            if 'link_data' in object_story and 'picture' in object_story['link_data']:
-                                thumbnail_url = object_story['link_data']['picture']
-                        
-                        if thumbnail_url:
-                            thumbnails[ad_id] = thumbnail_url
-                            logger.debug(f"Found thumbnail for ad {ad_id}: {thumbnail_url}")
+                        if creatives and len(creatives) > 0:
+                            creative = creatives[0]
+                            thumbnail_url = None
+                            resolution_info = "unknown"
+                            
+                            # PRIORITY 1: image_crops (Facebook's multiple sizes)
+                            if 'image_crops' in creative and creative['image_crops']:
+                                image_crops = creative['image_crops']
+                                available_sizes = list(image_crops.keys())
+                                logger.debug(f"🎯 Ad {ad_id} image_crops available: {available_sizes}")
+                                
+                                # Try progressively larger sizes
+                                for target_size in ['1080x1080', '600x600', '400x400', '320x320', '192x192']:
+                                    if target_size in image_crops:
+                                        thumbnail_url = image_crops[target_size]['source']
+                                        resolution_info = f"image_crops_{target_size}"
+                                        logger.info(f"✅ HIGH-RES: Using {target_size} crop for ad {ad_id}")
+                                        break
+                            
+                            # PRIORITY 2: Account image via hash matching (original quality)
+                            if not thumbnail_url and 'image_hash' in creative:
+                                image_hash = creative['image_hash']
+                                if image_hash in account_images:
+                                    account_image = account_images[image_hash]
+                                    thumbnail_url = account_image['url']
+                                    width = account_image.get('width', 'unknown')
+                                    height = account_image.get('height', 'unknown')
+                                    resolution_info = f"account_image_{width}x{height}"
+                                    logger.info(f"✅ ORIGINAL: Using account image {width}x{height} for ad {ad_id}")
+                            
+                            # PRIORITY 3: object_story_spec.link_data.picture (often high-res)
+                            if not thumbnail_url and 'object_story_spec' in creative:
+                                story_spec = creative['object_story_spec']
+                                if 'link_data' in story_spec and 'picture' in story_spec['link_data']:
+                                    thumbnail_url = story_spec['link_data']['picture']
+                                    resolution_info = "story_spec_picture"
+                                    logger.info(f"✅ STORY: Using object_story_spec picture for ad {ad_id}")
+                            
+                            # PRIORITY 4: image_url (may be larger than thumbnail_url)
+                            if not thumbnail_url and 'image_url' in creative:
+                                thumbnail_url = creative['image_url']
+                                resolution_info = "image_url"
+                                logger.info(f"✅ IMAGE_URL: Using image_url for ad {ad_id}")
+                            
+                            # PRIORITY 5: thumbnail_url (64x64 fallback)
+                            if not thumbnail_url and 'thumbnail_url' in creative:
+                                thumbnail_url = creative['thumbnail_url']
+                                resolution_info = "thumbnail_url_64x64"
+                                logger.warning(f"⚠️ FALLBACK: Using 64x64 thumbnail_url for ad {ad_id}")
+                            
+                            if thumbnail_url:
+                                thumbnails[ad_id] = thumbnail_url
+                                logger.debug(f"📸 Ad {ad_id} thumbnail ({resolution_info}): {thumbnail_url[:100]}...")
+                            else:
+                                logger.warning(f"❌ No thumbnail found for ad {ad_id}")
                         else:
-                            logger.debug(f"No thumbnail found for ad {ad_id}")
-                    else:
-                        logger.debug(f"No creatives found for ad {ad_id}")
+                            logger.warning(f"❌ No creatives found for ad {ad_id}")
                         
-                except FacebookRequestError as e:
-                    logger.warning(f"Facebook API error fetching creative for ad {ad_id}: {e}")
-                except Exception as e:
-                    logger.warning(f"Error fetching creative for ad {ad_id}: {e}")
+                        break  # Success, exit retry loop
+                        
+                    except FacebookRequestError as e:
+                        error_code = getattr(e, 'api_error_code', None)
+                        
+                        # Rate limit error codes
+                        if error_code in [4, 17, 32, 613, 80004] or 'rate limit' in str(e).lower():
+                            if attempt < max_retries:
+                                delay = base_delay * (2 ** attempt)
+                                logger.warning(f"⚠️ THUMBNAIL RATE LIMIT: ad {ad_id} - waiting {delay}s (attempt {attempt + 1})")
+                                time.sleep(delay)
+                                continue
+                            else:
+                                logger.warning(f"❌ THUMBNAIL RATE LIMIT EXHAUSTED: ad {ad_id} - skipping")
+                                break
+                        else:
+                            logger.warning(f"Facebook API error fetching creative for ad {ad_id}: {e}")
+                            break
+                    except Exception as e:
+                        logger.warning(f"Error fetching creative for ad {ad_id}: {e}")
+                        break
+            
+            # Add delay between batches to respect rate limits
+            if i + batch_size < len(ad_ids):  # Don't delay after the last batch
+                logger.info(f"⏱️ Waiting {batch_delay}s between thumbnail batches...")
+                time.sleep(batch_delay)
         
         logger.info(f"Retrieved {len(thumbnails)} thumbnails out of {len(ad_ids)} requested ads")
         return thumbnails

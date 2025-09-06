@@ -10,6 +10,14 @@ import {
 import { apiClient } from '../services/api';
 import { AdData, AdLevelSummary, FilterOptions, AdLevelFilters } from '../types/adLevel';
 import Header from '../components/Header';
+import { 
+  getRowColorClass, 
+  getNextStatus, 
+  isAutomatedStatus,
+  AdStatusColorLegend,
+  StatusOverrideWarning,
+  AdStatus
+} from '../components/AdStatusColorSystem';
 
 interface KPICardProps {
   title: string;
@@ -93,6 +101,15 @@ const AdLevelDashboard: React.FC = () => {
   const [sortColumn, setSortColumn] = useState<string | null>('total_spend');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [isScrolled, setIsScrolled] = useState(false);
+  
+  // Status override warning state
+  const [showOverrideWarning, setShowOverrideWarning] = useState(false);
+  const [overrideAdName, setOverrideAdName] = useState<string>('');
+  const [overrideCurrentStatus, setOverrideCurrentStatus] = useState<AdStatus>(null);
+  const [pendingStatusChange, setPendingStatusChange] = useState<{
+    adName: string;
+    nextStatus: AdStatus;
+  } | null>(null);
 
   // Filter states
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -166,6 +183,47 @@ const AdLevelDashboard: React.FC = () => {
     }
   };
 
+  // Define sortedAdData first before using it in functions
+  const sortedAdData = React.useMemo(() => {
+    if (!sortColumn) return adData;
+
+    return [...adData].sort((a, b) => {
+      let aValue: number;
+      let bValue: number;
+
+      switch (sortColumn) {
+        case 'total_spend':
+          aValue = a.total_spend;
+          bValue = b.total_spend;
+          break;
+        case 'total_roas':
+          aValue = a.total_roas;
+          bValue = b.total_roas;
+          break;
+        case 'total_cpa':
+          aValue = a.total_cpa;
+          bValue = b.total_cpa;
+          break;
+        case 'total_cpc':
+          aValue = a.total_cpc;
+          bValue = b.total_cpc;
+          break;
+        case 'days_live':
+          aValue = a.days_live;
+          bValue = b.days_live;
+          break;
+        default:
+          return 0;
+      }
+
+      if (sortDirection === 'asc') {
+        return aValue - bValue;
+      } else {
+        return bValue - aValue;
+      }
+    });
+  }, [adData, sortColumn, sortDirection]);
+
   const toggleAdExpansion = (adName: string) => {
     setExpandedAds(prev => 
       prev.includes(adName) 
@@ -173,6 +231,16 @@ const AdLevelDashboard: React.FC = () => {
         : [...prev, adName]
     );
   };
+
+  const expandAllAds = () => {
+    setExpandedAds(sortedAdData.map(ad => ad.ad_name));
+  };
+
+  const collapseAllAds = () => {
+    setExpandedAds([]);
+  };
+
+  const allAdsExpanded = expandedAds.length === sortedAdData.length && sortedAdData.length > 0;
 
   const toggleFilter = (filterType: 'categories' | 'content_types' | 'formats' | 'campaign_optimizations', value: string) => {
     const setters = {
@@ -215,34 +283,60 @@ const AdLevelDashboard: React.FC = () => {
     }
   };
 
-  // Status management for color coding
-  const getNextStatus = (currentStatus: string | null | undefined): string | null => {
-    const statusCycle = [null, 'winner', 'considering', 'paused', 'paused_last_week'];
-    const currentIndex = statusCycle.indexOf(currentStatus || null);
-    const nextIndex = (currentIndex + 1) % statusCycle.length;
-    return statusCycle[nextIndex];
+  // Enhanced status management with automation support
+  const handleStatusOverrideConfirm = async () => {
+    if (!pendingStatusChange) return;
+    
+    try {
+      const result = await apiClient.updateAdStatus(
+        pendingStatusChange.adName, 
+        pendingStatusChange.nextStatus
+      );
+      
+      // Update local state
+      setAdData(prevData => 
+        prevData.map(ad => 
+          ad.ad_name === pendingStatusChange.adName 
+            ? { ...ad, status: pendingStatusChange.nextStatus as any }
+            : ad
+        )
+      );
+      
+      // Clear states
+      setShowOverrideWarning(false);
+      setPendingStatusChange(null);
+      setOverrideAdName('');
+      setOverrideCurrentStatus(null);
+      
+    } catch (error) {
+      console.error('❌ Failed to override ad status:', error);
+    }
   };
 
-  const getRowColorClass = (status: string | null | undefined): string => {
-    switch (status) {
-      case 'winner':
-        return 'bg-green-100 hover:bg-green-200';
-      case 'considering':
-        return 'bg-yellow-100 hover:bg-yellow-200';
-      case 'paused':
-        return 'bg-red-100 hover:bg-red-200';
-      case 'paused_last_week':
-        return 'bg-gray-100 hover:bg-gray-200';
-      default:
-        return 'hover:bg-gray-50';
-    }
+  const handleStatusOverrideCancel = () => {
+    setShowOverrideWarning(false);
+    setPendingStatusChange(null);
+    setOverrideAdName('');
+    setOverrideCurrentStatus(null);
   };
 
   const handleRowClick = async (adName: string, currentStatus: string | null | undefined) => {
     console.log('🔄 Row clicked:', adName, 'Current status:', currentStatus);
-    const nextStatus = getNextStatus(currentStatus);
+    const currentAdStatus = currentStatus as AdStatus;
+    const nextStatus = getNextStatus(currentAdStatus);
     console.log('🎯 Next status:', nextStatus);
     
+    // Check if trying to override automated status - show warning
+    if (isAutomatedStatus(currentAdStatus)) {
+      console.log('⚠️ Attempting to override automated status');
+      setOverrideAdName(adName);
+      setOverrideCurrentStatus(currentAdStatus);
+      setPendingStatusChange({ adName, nextStatus });
+      setShowOverrideWarning(true);
+      return;
+    }
+    
+    // Normal status update for non-automated statuses
     try {
       console.log('📡 Calling updateAdStatus API...');
       const result = await apiClient.updateAdStatus(adName, nextStatus);
@@ -260,49 +354,8 @@ const AdLevelDashboard: React.FC = () => {
     } catch (error) {
       console.error('❌ Failed to update ad status:', error);
       console.error('Error details:', (error as any)?.response?.data || (error as Error)?.message);
-      // Could add toast notification here
     }
   };
-
-  const sortedAdData = React.useMemo(() => {
-    if (!sortColumn) return adData;
-
-    return [...adData].sort((a, b) => {
-      let aValue: number;
-      let bValue: number;
-
-      switch (sortColumn) {
-        case 'total_spend':
-          aValue = a.total_spend;
-          bValue = b.total_spend;
-          break;
-        case 'total_roas':
-          aValue = a.total_roas;
-          bValue = b.total_roas;
-          break;
-        case 'total_cpa':
-          aValue = a.total_cpa;
-          bValue = b.total_cpa;
-          break;
-        case 'total_cpc':
-          aValue = a.total_cpc;
-          bValue = b.total_cpc;
-          break;
-        case 'days_live':
-          aValue = a.days_live;
-          bValue = b.days_live;
-          break;
-        default:
-          return 0;
-      }
-
-      if (sortDirection === 'asc') {
-        return aValue - bValue;
-      } else {
-        return bValue - aValue;
-      }
-    });
-  }, [adData, sortColumn, sortDirection]);
 
   const formatCurrency = (value: number) => `$${Math.round(value).toLocaleString()}`;
   const formatDecimal = (value: number, decimals: number = 2) => value.toFixed(decimals);
@@ -449,9 +502,16 @@ const AdLevelDashboard: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-base font-semibold text-gray-900">Ad-Level Performance (Last 14 Days by Week)</h2>
-                  <p className="text-xs text-gray-500">
-                    {adData.length} ads • Click to expand weekly breakdown
-                  </p>
+                  <div className="flex items-center space-x-1 text-xs text-gray-500">
+                    <span>{sortedAdData.length} ads • Click to expand weekly breakdown</span>
+                    <span>•</span>
+                    <button
+                      onClick={allAdsExpanded ? collapseAllAds : expandAllAds}
+                      className="text-blue-600 hover:text-blue-800 font-medium transition-colors underline"
+                    >
+                      {allAdsExpanded ? 'Collapse all' : 'Expand all'}
+                    </button>
+                  </div>
                 </div>
                 
                 {/* Color Key */}
@@ -466,12 +526,8 @@ const AdLevelDashboard: React.FC = () => {
                     <span className="text-xs text-gray-700">Considering</span>
                   </div>
                   <div className="flex items-center space-x-1">
-                    <div className="w-2 h-2 bg-red-500 rounded"></div>
-                    <span className="text-xs text-gray-700">Paused</span>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <div className="w-2 h-2 bg-gray-500 rounded"></div>
-                    <span className="text-xs text-gray-700">Paused last week</span>
+                    <div className="w-2 h-2 bg-red-800 rounded"></div>
+                    <span className="text-xs text-gray-700">Auto Paused</span>
                   </div>
                 </div>
               </div>
@@ -516,7 +572,7 @@ const AdLevelDashboard: React.FC = () => {
                     rows.push(
                       <tr 
                         key={ad.ad_name} 
-                        className={`transition-colors cursor-pointer ${getRowColorClass(ad.status)}`}
+                        className={`transition-colors cursor-pointer ${getRowColorClass(ad.status as AdStatus)}`}
                         onClick={() => handleRowClick(ad.ad_name, ad.status)}
                       >
                         <td className="px-4 py-2 whitespace-nowrap w-1/3">
@@ -534,14 +590,16 @@ const AdLevelDashboard: React.FC = () => {
                               }
                             </button>
                             {ad.thumbnail_url ? (
-                              <img 
-                                src={ad.thumbnail_url} 
-                                alt={ad.ad_name}
-                                className="w-8 h-8 rounded object-cover border border-gray-200"
-                                onError={(e) => {
-                                  e.currentTarget.style.display = 'none';
-                                }}
-                              />
+                              <div className="relative group">
+                                <img 
+                                  src={ad.thumbnail_url} 
+                                  alt={ad.ad_name}
+                                  className="w-8 h-8 rounded object-cover border border-gray-200 transition-transform duration-200 cursor-pointer group-hover:scale-[3] group-hover:z-[9999] group-hover:shadow-lg group-hover:border group-hover:border-blue-300 group-hover:relative"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                  }}
+                                />
+                              </div>
                             ) : (
                               <div className="w-8 h-8 rounded bg-gray-100 border border-gray-200 flex items-center justify-center">
                                 <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -773,6 +831,16 @@ const AdLevelDashboard: React.FC = () => {
           />
         )}
       </div>
+
+      {/* Status Override Warning Modal */}
+      {showOverrideWarning && (
+        <StatusOverrideWarning
+          adName={overrideAdName}
+          currentStatus={overrideCurrentStatus}
+          onConfirm={handleStatusOverrideConfirm}
+          onCancel={handleStatusOverrideCancel}
+        />
+      )}
     </div>
   );
 };

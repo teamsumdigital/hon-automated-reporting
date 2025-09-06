@@ -64,7 +64,7 @@ class TikTokReportingService:
         Get TikTok ads aggregated by month - much simpler approach
         """
         try:
-            # Use pagination to get ALL ads (Supabase has 1000 row default limit)
+            # Get ALL ads - use proper pagination to handle Supabase's 1000 row limit
             all_ads = []
             page_size = 1000
             offset = 0

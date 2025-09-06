@@ -6,6 +6,7 @@ from loguru import logger
 import os
 from supabase import create_client
 from ..services.meta_ad_level_service import MetaAdLevelService
+from ..services.ad_pause_automation import AdPauseAutomationService
 
 router = APIRouter()
 
@@ -18,13 +19,77 @@ if not supabase_url or not supabase_key:
 
 supabase = create_client(supabase_url, supabase_key)
 
+@router.get("/test-thumbnails")
+async def test_thumbnails():
+    """Test the new high-resolution thumbnail system"""
+    
+    try:
+        service = MetaAdLevelService()
+        
+        # Get 3 recent ads for testing  
+        recent_ads = service.ad_account.get_ads(fields=['id', 'name'], params={'limit': 3})
+        test_ad_ids = [ad['id'] for ad in list(recent_ads)]
+        
+        if not test_ad_ids:
+            return {"error": "No ads found for testing"}
+        
+        # Test the new thumbnail system
+        thumbnails = service.get_ad_thumbnails(test_ad_ids)
+        
+        # Analyze results
+        results = []
+        for ad_id, thumbnail_url in thumbnails.items():
+            # Determine likely quality based on URL patterns
+            if any(size in thumbnail_url for size in ['1080x1080', '600x600', '400x400']):
+                quality = "HIGH-RES (400x400+)"
+                status = "success"
+            elif any(size in thumbnail_url for size in ['320x320', '192x192']):
+                quality = "MEDIUM-RES (192x192+)"
+                status = "good"
+            elif 'p64x64' in thumbnail_url:
+                quality = "LOW-RES (64x64)"
+                status = "fallback"
+            else:
+                quality = "UNKNOWN"
+                status = "unknown"
+                
+            results.append({
+                "ad_id": ad_id,
+                "thumbnail_url": thumbnail_url,
+                "estimated_quality": quality,
+                "status": status
+            })
+        
+        # Summary
+        high_res_count = sum(1 for r in results if r['status'] == 'success')
+        total_count = len(results)
+        
+        return {
+            "test_summary": {
+                "total_ads_tested": total_count,
+                "high_res_thumbnails": high_res_count,
+                "success_rate": f"{(high_res_count/total_count)*100:.1f}%" if total_count > 0 else "0%",
+                "system_working": high_res_count > 0
+            },
+            "thumbnail_results": results,
+            "next_steps": [
+                "Copy a thumbnail URL and test in browser",
+                "If image is large/clear, run full N8N sync",
+                "Check dashboard for improved hover zoom quality"
+            ]
+        }
+        
+    except Exception as e:
+        logger.error(f"Thumbnail test error: {e}")
+        return {"error": str(e)}
+
 # Simple in-memory lock to prevent concurrent syncs
 _sync_in_progress = False
 
 # Pydantic models for request bodies
 class StatusUpdateRequest(BaseModel):
     ad_name: str
-    status: Optional[str] = None  # 'winner', 'considering', 'paused', 'paused_last_week', or null for no color
+    status: Optional[str] = None  # 'winner', 'considering', 'paused', 'paused_automated', or null for no color
 
 @router.get("/test-connection")
 def test_meta_ad_connection():
@@ -164,6 +229,36 @@ def perform_14_day_sync():
                 # Log each week for debugging momentum indicators
                 for week, stats in weekly_summary.items():
                     logger.info(f"   Week {week}: {stats['ads_count']} ads, ${stats['spend']:.2f} spend, ${stats['revenue']:.2f} revenue")
+                
+                # Apply automated pause detection after successful sync
+                logger.info("🤖 Running automated pause detection...")
+                try:
+                    automation_service = AdPauseAutomationService()
+                    
+                    # Analyze the ad data for pause status
+                    pause_analysis = automation_service.analyze_ad_pause_status(ad_data)
+                    summary = automation_service.get_pause_status_summary(pause_analysis)
+                    
+                    logger.info(f"📊 Pause analysis: {summary['total_ads_analyzed']} ads analyzed")
+                    logger.info(f"   🔴 Completely paused: {summary['completely_paused']} ads")
+                    logger.info(f"   🟢 Completely active: {summary['completely_active']} ads") 
+                    logger.info(f"   🟡 Mixed status: {summary['mixed_status']} ads")
+                    
+                    # Apply automated status updates (using sync wrapper for async)
+                    import asyncio
+                    results = asyncio.run(automation_service.apply_automated_status_updates(pause_analysis))
+                    
+                    logger.info(f"✅ Automation complete: {results['updates_applied']} automated pause statuses applied")
+                    if results['updates_cleared'] > 0:
+                        logger.info(f"   🔄 {results['updates_cleared']} automated statuses cleared (ads became active)")
+                    if results['preserved_manual'] > 0:
+                        logger.info(f"   🤲 {results['preserved_manual']} manual statuses preserved")
+                    if results.get('errors'):
+                        logger.error(f"   ⚠️ {len(results['errors'])} automation errors occurred")
+                        
+                except Exception as auto_error:
+                    logger.error(f"⚠️ Automated pause detection failed: {auto_error}")
+                    # Don't fail the entire sync if automation fails
                 
             else:
                 logger.error("❌ Background sync failed - Could not insert ad data")

@@ -19,6 +19,89 @@ import {
   AdStatus
 } from '../components/AdStatusColorSystem';
 
+// Enhanced Thumbnail Component with Lazy-Loading Hover
+interface ThumbnailWithHoverProps {
+  thumbnail_url: string;
+  permalink_url?: string;
+  ad_name: string;
+  creative_type?: string;
+  original_width?: number;
+  original_height?: number;
+}
+
+const ThumbnailWithHover: React.FC<ThumbnailWithHoverProps> = ({
+  thumbnail_url,
+  permalink_url,
+  ad_name,
+  creative_type,
+  original_width,
+  original_height
+}) => {
+  const [isHovered, setIsHovered] = useState(false);
+  const [highResLoaded, setHighResLoaded] = useState(false);
+  const [highResError, setHighResError] = useState(false);
+
+  // Use permalink_url for high-res hover, fallback to thumbnail_url
+  const hoverImageUrl = permalink_url || thumbnail_url;
+  const hasHighRes = permalink_url && permalink_url !== thumbnail_url;
+
+  return (
+    <div 
+      className="relative group"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      {/* Small thumbnail for table display */}
+      <img 
+        src={thumbnail_url} 
+        alt={ad_name}
+        className="w-8 h-8 rounded object-cover border border-gray-200 transition-all duration-200 cursor-pointer"
+        onError={(e) => {
+          e.currentTarget.style.display = 'none';
+        }}
+      />
+      
+      {/* High-res hover overlay (lazy-loaded) */}
+      {isHovered && (
+        <div className="absolute z-[9999] top-0 left-0 pointer-events-none">
+          <div className="relative">
+            <img
+              src={hoverImageUrl}
+              alt={`${ad_name} - High Resolution`}
+              className={`
+                rounded-lg shadow-2xl border-2 border-blue-300 object-cover
+                transition-all duration-300 transform scale-[3]
+                ${highResLoaded ? 'opacity-100' : 'opacity-0'}
+                ${creative_type === 'video' ? 'w-48 h-32' : 'w-32 h-32'}
+              `}
+              onLoad={() => setHighResLoaded(true)}
+              onError={() => setHighResError(true)}
+            />
+            
+            {/* Loading indicator for high-res */}
+            {!highResLoaded && !highResError && (
+              <div className="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-lg shadow-2xl border-2 border-blue-300 transform scale-[3] w-32 h-32">
+                <div className="animate-spin rounded-full h-6 w-6 border-2 border-blue-600 border-t-transparent"></div>
+              </div>
+            )}
+            
+            {/* Creative type and resolution info */}
+            {isHovered && (hasHighRes || original_width) && (
+              <div className="absolute -bottom-8 left-0 bg-black bg-opacity-75 text-white text-xs px-2 py-1 rounded whitespace-nowrap transform scale-[0.33] origin-top-left">
+                {creative_type && <span className="capitalize">{creative_type.replace('_', ' ')}</span>}
+                {original_width && original_height && (
+                  <span className="ml-1">({original_width}×{original_height})</span>
+                )}
+                {hasHighRes && <span className="ml-1 text-green-300">• Enhanced</span>}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 interface KPICardProps {
   title: string;
   value: string | number;
@@ -527,7 +610,7 @@ const AdLevelDashboard: React.FC = () => {
                   </div>
                   <div className="flex items-center space-x-1">
                     <div className="w-2 h-2 bg-red-800 rounded"></div>
-                    <span className="text-xs text-gray-700">Auto Paused</span>
+                    <span className="text-xs text-gray-700">Paused</span>
                   </div>
                 </div>
               </div>
@@ -590,16 +673,14 @@ const AdLevelDashboard: React.FC = () => {
                               }
                             </button>
                             {ad.thumbnail_url ? (
-                              <div className="relative group">
-                                <img 
-                                  src={ad.thumbnail_url} 
-                                  alt={ad.ad_name}
-                                  className="w-8 h-8 rounded object-cover border border-gray-200 transition-transform duration-200 cursor-pointer group-hover:scale-[3] group-hover:z-[9999] group-hover:shadow-lg group-hover:border group-hover:border-blue-300 group-hover:relative"
-                                  onError={(e) => {
-                                    e.currentTarget.style.display = 'none';
-                                  }}
-                                />
-                              </div>
+                              <ThumbnailWithHover
+                                thumbnail_url={ad.thumbnail_url}
+                                permalink_url={ad.permalink_url}
+                                ad_name={ad.ad_name}
+                                creative_type={ad.creative_type}
+                                original_width={ad.original_width}
+                                original_height={ad.original_height}
+                              />
                             ) : (
                               <div className="w-8 h-8 rounded bg-gray-100 border border-gray-200 flex items-center justify-center">
                                 <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

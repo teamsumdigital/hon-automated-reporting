@@ -42,7 +42,7 @@ export const getStatusDisplayName = (status: AdStatus): string => {
     case 'winner': return 'Winner';
     case 'considering': return 'Considering';
     case 'paused': return 'Paused (Manual)';
-    case 'paused_automated': return 'Paused (Auto)';
+    case 'paused_automated': return 'Paused';
     default: return 'No Status';
   }
 };

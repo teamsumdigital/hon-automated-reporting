@@ -37,9 +37,22 @@ class AdPauseAutomationService:
             
             for ad in ad_data_list:
                 ad_name = ad.get('ad_name', '')
-                ad_status = ad.get('effective_status', '').upper()  # Meta API status
-                campaign_status = ad.get('campaign_status', '').upper()
-                adset_status = ad.get('adset_status', '').upper()
+                ad_status = ad.get('effective_status', '').upper()  # Ad status
+                # Handle nested campaign/adset status fields from Meta API
+                campaign_status = ''
+                adset_status = ''
+                
+                # Extract campaign status from nested structure
+                if 'campaign' in ad and isinstance(ad['campaign'], dict):
+                    campaign_status = ad['campaign'].get('effective_status', '').upper()
+                
+                # Extract adset status and details from nested structure  
+                adset_name = ''
+                adset_id = ''
+                if 'adset' in ad and isinstance(ad['adset'], dict):
+                    adset_status = ad['adset'].get('effective_status', '').upper()
+                    adset_name = ad['adset'].get('name', '')
+                    adset_id = ad['adset'].get('id', '')
                 
                 if ad_name not in ad_groups:
                     ad_groups[ad_name] = {
@@ -60,7 +73,8 @@ class AdPauseAutomationService:
                 ad_groups[ad_name]['placements'].append({
                     'ad_id': ad.get('ad_id'),
                     'campaign_name': ad.get('campaign_name', ''),
-                    'adset_name': ad.get('adset_name', ''),
+                    'adset_name': adset_name,
+                    'adset_id': adset_id,
                     'ad_status': ad_status,
                     'campaign_status': campaign_status,
                     'adset_status': adset_status,

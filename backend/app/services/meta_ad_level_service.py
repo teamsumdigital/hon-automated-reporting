@@ -163,7 +163,14 @@ class MetaAdLevelService:
                     'ctr',
                     'objective',
                     'date_start',
-                    'date_stop'
+                    'date_stop',
+                    # Status fields for pause detection
+                    'effective_status',           # Ad status (ACTIVE, PAUSED, etc.)
+                    'campaign.effective_status',  # Campaign status
+                    'adset.effective_status',     # AdSet status
+                    'campaign.name',              # Campaign name for context
+                    'adset.name',                 # AdSet name for grouping
+                    'adset.id',                   # AdSet ID for multi-instance detection
                 ],
                 'level': 'ad',
                 'time_increment': 7,  # Weekly segments (7 days)
@@ -383,13 +390,22 @@ class MetaAdLevelService:
             logger.info(f"🖼️ First 5 ad IDs: {ad_ids[:5]}")
             thumbnails = self.get_ad_thumbnails(ad_ids)
             
-            # Add thumbnail URLs to ad data
+            # Add thumbnail data to ad data (enhanced structure)
             for ad in ad_data:
                 ad_id = ad.get('ad_id')
                 if ad_id and ad_id in thumbnails:
-                    ad['thumbnail_url'] = thumbnails[ad_id]
+                    thumbnail_data = thumbnails[ad_id]
+                    ad['thumbnail_url'] = thumbnail_data.get('thumbnail_url')  # For table display
+                    ad['permalink_url'] = thumbnail_data.get('permalink_url')  # For hover high-res
+                    ad['creative_type'] = thumbnail_data.get('creative_type', 'unknown')
+                    ad['original_width'] = thumbnail_data.get('original_width', 0)
+                    ad['original_height'] = thumbnail_data.get('original_height', 0)
                 else:
                     ad['thumbnail_url'] = None
+                    ad['permalink_url'] = None
+                    ad['creative_type'] = 'unknown'
+                    ad['original_width'] = 0
+                    ad['original_height'] = 0
         else:
             logger.info("No ad IDs found, skipping thumbnail fetch")
         
@@ -490,30 +506,36 @@ class MetaAdLevelService:
             logger.warning(f"Failed to upgrade thumbnail URL for ad {ad_id}: {e}")
             return original_url
     
-    def get_ad_thumbnails(self, ad_ids: List[str]) -> Dict[str, str]:
+    def get_ad_thumbnails(self, ad_ids: List[str]) -> Dict[str, Dict[str, str]]:
         """
-        Fetch high-resolution thumbnail URLs for a list of ad IDs
-        Uses Facebook's image_crops and account images for best quality
-        Returns dict mapping ad_id to thumbnail_url
+        Enhanced thumbnail system using ChatGPT's solution
+        Fetches true high-resolution originals via AdImage permalink_url
+        Returns dict mapping ad_id to {thumbnail_url, permalink_url, creative_type}
         """
         import time
         from facebook_business.exceptions import FacebookRequestError
+        from facebook_business.adobjects.adimage import AdImage
         
         thumbnails = {}
         
-        # STEP 1: Get account images for hash matching (high-resolution originals)
+        # STEP 1: Get account images with permalink_url (permanent high-res CDN URLs)
         account_images = {}
         try:
-            logger.info(f"🖼️ Fetching account images for hash matching...")
+            logger.info(f"🖼️ Fetching account images with permalink_url for true high-res...")
             images = self.ad_account.get_ad_images(fields=[
-                'id', 'hash', 'url', 'width', 'height', 'original_width', 'original_height'
+                'id', 'hash', 'url', 'permalink_url', 'original_width', 'original_height'
             ], params={'limit': 500})
             
             for img in images:
                 if 'hash' in img:
-                    account_images[img['hash']] = img
+                    account_images[img['hash']] = {
+                        'url': img.get('url'),  # Standard URL for table display
+                        'permalink_url': img.get('permalink_url', img.get('url')),  # True high-res CDN
+                        'original_width': img.get('original_width', 0),
+                        'original_height': img.get('original_height', 0)
+                    }
                     
-            logger.info(f"✅ Loaded {len(account_images)} account images for hash matching")
+            logger.info(f"✅ Loaded {len(account_images)} account images with permalink URLs")
         except Exception as e:
             logger.warning(f"⚠️ Could not load account images: {e}")
         
@@ -536,23 +558,99 @@ class MetaAdLevelService:
                     try:
                         ad = Ad(ad_id)
                         
-                        # Get ad creatives with comprehensive image fields
+                        # Get ad creatives with comprehensive fields for enhanced thumbnail system
                         creatives = ad.get_ad_creatives(fields=[
-                            AdCreative.Field.thumbnail_url,      # 64x64 fallback
-                            AdCreative.Field.image_url,          # Sometimes larger
-                            AdCreative.Field.image_crops,        # Multiple sizes (our best bet!)
-                            AdCreative.Field.image_hash,         # For account image matching
-                            AdCreative.Field.object_story_spec,  # Contains link_data.picture
-                            'image_file'                         # Original file reference
+                            AdCreative.Field.thumbnail_url,      # Small thumbnail for table display
+                            AdCreative.Field.image_hash,         # Key for permalink_url lookup
+                            AdCreative.Field.object_story_spec,  # Video ID and link data detection
+                            AdCreative.Field.video_id,           # For video thumbnail endpoint
+                            AdCreative.Field.image_url,          # Alternative image source
+                            AdCreative.Field.image_crops,        # Multiple size variants
+                            'object_story_id',                   # Story post details
+                            'effective_object_story_id',         # Effective story details  
+                            'call_to_action_type',               # CTA indicates ad type
+                            'asset_feed_spec',                   # Dynamic ads/catalog
+                            'degrees_of_freedom_spec',           # Creative flexibility
+                            'template_url',                      # Dynamic template
+                            'title',                             # Ad title
+                            'body'                               # Ad body text
                         ])
                         
                         if creatives and len(creatives) > 0:
                             creative = creatives[0]
-                            thumbnail_url = None
+                            
+                            # DEBUG: Log available fields to understand what Facebook returns
+                            available_fields = list(creative.keys())
+                            logger.debug(f"🔍 Ad {ad_id} creative fields: {available_fields}")
+                            
+                            thumbnail_data = {
+                                'thumbnail_url': None,     # For table display
+                                'permalink_url': None,     # For hover high-res
+                                'creative_type': 'unknown',
+                                'original_width': 0,
+                                'original_height': 0
+                            }
                             resolution_info = "unknown"
                             
-                            # PRIORITY 1: image_crops (Facebook's multiple sizes)
-                            if 'image_crops' in creative and creative['image_crops']:
+                            # STEP 1: Detect creative type (EXPANDED DETECTION)
+                            creative_type_detected = False
+                            
+                            # Check for video first
+                            if 'video_id' in creative and creative['video_id']:
+                                thumbnail_data['creative_type'] = 'video'
+                                logger.debug(f"🎬 Ad {ad_id} is VIDEO type (video_id: {creative['video_id']})")
+                                creative_type_detected = True
+                            elif 'object_story_spec' in creative:
+                                story_spec = creative['object_story_spec']
+                                # Check for video data first
+                                if any(key in story_spec for key in ['video_data', 'video']):
+                                    thumbnail_data['creative_type'] = 'video'
+                                    logger.debug(f"🎬 Ad {ad_id} is VIDEO type from story_spec")
+                                    creative_type_detected = True
+                                # Check for carousel/collection (link_data with child_attachments)
+                                elif ('link_data' in story_spec and 
+                                      'child_attachments' in story_spec['link_data'] and 
+                                      len(story_spec['link_data']['child_attachments']) > 1):
+                                    thumbnail_data['creative_type'] = 'carousel'
+                                    logger.debug(f"🎠 Ad {ad_id} is CAROUSEL type ({len(story_spec['link_data']['child_attachments'])} items)")
+                                    creative_type_detected = True
+                                # Check for single collection/dynamic product
+                                elif 'link_data' in story_spec:
+                                    thumbnail_data['creative_type'] = 'dynamic_product' 
+                                    logger.debug(f"🏪 Ad {ad_id} is DYNAMIC_PRODUCT type")
+                                    creative_type_detected = True
+                            
+                            # Check for dynamic/catalog ads using asset_feed_spec
+                            if not creative_type_detected and 'asset_feed_spec' in creative:
+                                thumbnail_data['creative_type'] = 'dynamic_product'
+                                logger.debug(f"🏪 Ad {ad_id} is DYNAMIC_PRODUCT type (asset_feed_spec)")
+                                creative_type_detected = True
+                            
+                            # Check template_url for dynamic ads
+                            if not creative_type_detected and 'template_url' in creative and creative['template_url']:
+                                thumbnail_data['creative_type'] = 'dynamic_product'
+                                logger.debug(f"🏪 Ad {ad_id} is DYNAMIC_PRODUCT type (template_url)")
+                                creative_type_detected = True
+                                
+                            # Fallback to static_image
+                            if not creative_type_detected:
+                                thumbnail_data['creative_type'] = 'static_image'
+                                logger.debug(f"🖼️ Ad {ad_id} is STATIC_IMAGE type (fallback - no video/dynamic indicators found)")
+                            
+                            # STEP 2: Get permalink_url for static images (ChatGPT's solution)
+                            if thumbnail_data['creative_type'] == 'static_image' and 'image_hash' in creative:
+                                image_hash = creative['image_hash']
+                                if image_hash in account_images:
+                                    account_image = account_images[image_hash]
+                                    thumbnail_data['thumbnail_url'] = account_image['url']  # Table display
+                                    thumbnail_data['permalink_url'] = account_image['permalink_url']  # Hover high-res
+                                    thumbnail_data['original_width'] = account_image['original_width']
+                                    thumbnail_data['original_height'] = account_image['original_height']
+                                    resolution_info = f"permalink_url_{account_image['original_width']}x{account_image['original_height']}"
+                                    logger.info(f"✅ PERMALINK: Using permalink_url for static ad {ad_id} ({account_image['original_width']}x{account_image['original_height']})")
+                            
+                            # STEP 3: Fallback to image_crops for enhanced resolution
+                            if not thumbnail_data['thumbnail_url'] and 'image_crops' in creative and creative['image_crops']:
                                 image_crops = creative['image_crops']
                                 available_sizes = list(image_crops.keys())
                                 logger.debug(f"🎯 Ad {ad_id} image_crops available: {available_sizes}")
@@ -560,45 +658,132 @@ class MetaAdLevelService:
                                 # Try progressively larger sizes
                                 for target_size in ['1080x1080', '600x600', '400x400', '320x320', '192x192']:
                                     if target_size in image_crops:
-                                        thumbnail_url = image_crops[target_size]['source']
+                                        thumbnail_data['thumbnail_url'] = image_crops[target_size]['source']
                                         resolution_info = f"image_crops_{target_size}"
-                                        logger.info(f"✅ HIGH-RES: Using {target_size} crop for ad {ad_id}")
+                                        logger.info(f"✅ HIGH-RES CROPS: Using {target_size} crop for ad {ad_id}")
                                         break
                             
-                            # PRIORITY 2: Account image via hash matching (original quality)
-                            if not thumbnail_url and 'image_hash' in creative:
-                                image_hash = creative['image_hash']
-                                if image_hash in account_images:
-                                    account_image = account_images[image_hash]
-                                    thumbnail_url = account_image['url']
-                                    width = account_image.get('width', 'unknown')
-                                    height = account_image.get('height', 'unknown')
-                                    resolution_info = f"account_image_{width}x{height}"
-                                    logger.info(f"✅ ORIGINAL: Using account image {width}x{height} for ad {ad_id}")
+                            # STEP 4: Video thumbnail fetching (ChatGPT's solution)
+                            if thumbnail_data['creative_type'] == 'video' and 'video_id' in creative and creative['video_id']:
+                                try:
+                                    from facebook_business.adobjects.advideo import AdVideo
+                                    video = AdVideo(creative['video_id'])
+                                    video_thumbnails = video.get_thumbnails()
+                                    
+                                    if video_thumbnails:
+                                        # Find the largest thumbnail
+                                        best_thumbnail = None
+                                        max_size = 0
+                                        
+                                        for thumb in video_thumbnails:
+                                            width = thumb.get('width', 0)
+                                            height = thumb.get('height', 0)
+                                            size = width * height
+                                            
+                                            if size > max_size:
+                                                max_size = size
+                                                best_thumbnail = thumb
+                                        
+                                        if best_thumbnail:
+                                            thumbnail_data['thumbnail_url'] = best_thumbnail.get('uri')
+                                            thumbnail_data['permalink_url'] = best_thumbnail.get('uri')  # Same for video
+                                            thumbnail_data['original_width'] = best_thumbnail.get('width', 0)
+                                            thumbnail_data['original_height'] = best_thumbnail.get('height', 0)
+                                            resolution_info = f"video_thumbnail_{thumbnail_data['original_width']}x{thumbnail_data['original_height']}"
+                                            logger.info(f"✅ VIDEO: Using video thumbnail for ad {ad_id} ({thumbnail_data['original_width']}x{thumbnail_data['original_height']})")
+                                
+                                except Exception as e:
+                                    logger.warning(f"⚠️ Could not fetch video thumbnail for ad {ad_id}: {e}")
                             
-                            # PRIORITY 3: object_story_spec.link_data.picture (often high-res)
-                            if not thumbnail_url and 'object_story_spec' in creative:
+                            # STEP 4B: Carousel/Dynamic Product thumbnail handling
+                            if thumbnail_data['creative_type'] in ['carousel', 'dynamic_product'] and 'object_story_spec' in creative:
+                                story_spec = creative['object_story_spec']
+                                if 'link_data' in story_spec:
+                                    link_data = story_spec['link_data']
+                                    
+                                    # Try to get the best thumbnail from carousel/collection
+                                    if 'child_attachments' in link_data and len(link_data['child_attachments']) > 0:
+                                        # Use first child attachment thumbnail
+                                        first_child = link_data['child_attachments'][0]
+                                        if 'picture' in first_child:
+                                            thumbnail_data['thumbnail_url'] = first_child['picture']
+                                            thumbnail_data['permalink_url'] = first_child['picture']  # Same URL for collections
+                                            resolution_info = f"carousel_child_thumbnail"
+                                            logger.info(f"🎠 CAROUSEL: Using child thumbnail for ad {ad_id}")
+                                    elif 'picture' in link_data:
+                                        # Single collection/dynamic product
+                                        thumbnail_data['thumbnail_url'] = link_data['picture']
+                                        thumbnail_data['permalink_url'] = link_data['picture']
+                                        resolution_info = f"dynamic_product_thumbnail"
+                                        logger.info(f"🏪 DYNAMIC_PRODUCT: Using link_data picture for ad {ad_id}")
+                            
+                            # STEP 4C: Enhanced image_crops handling for all types
+                            if not thumbnail_data['thumbnail_url'] and 'image_crops' in creative and creative['image_crops']:
+                                image_crops = creative['image_crops']
+                                available_sizes = list(image_crops.keys())
+                                logger.debug(f"🎯 Ad {ad_id} image_crops available: {available_sizes}")
+                                
+                                # Find the largest available crop
+                                best_size = None
+                                max_pixels = 0
+                                
+                                for size_key in image_crops.keys():
+                                    try:
+                                        # Parse dimensions from size key (e.g., "1080x1080")
+                                        if 'x' in size_key:
+                                            w, h = map(int, size_key.split('x'))
+                                            pixels = w * h
+                                            if pixels > max_pixels:
+                                                max_pixels = pixels
+                                                best_size = size_key
+                                    except:
+                                        continue
+                                
+                                if best_size and best_size in image_crops:
+                                    crop_data = image_crops[best_size]
+                                    thumbnail_data['thumbnail_url'] = crop_data['source']
+                                    thumbnail_data['permalink_url'] = crop_data['source']  # Use same high-res source
+                                    
+                                    # Try to extract dimensions
+                                    try:
+                                        w, h = map(int, best_size.split('x'))
+                                        thumbnail_data['original_width'] = w
+                                        thumbnail_data['original_height'] = h
+                                    except:
+                                        pass
+                                    
+                                    resolution_info = f"image_crops_{best_size}"
+                                    logger.info(f"✅ HIGH-RES CROPS: Using {best_size} crop for ad {ad_id} ({max_pixels:,} pixels)")
+                                else:
+                                    logger.debug(f"⚠️ No valid image_crops found for ad {ad_id}")
+                            
+                            # STEP 5: object_story_spec.link_data.picture (often high-res)
+                            if not thumbnail_data['thumbnail_url'] and 'object_story_spec' in creative:
                                 story_spec = creative['object_story_spec']
                                 if 'link_data' in story_spec and 'picture' in story_spec['link_data']:
-                                    thumbnail_url = story_spec['link_data']['picture']
+                                    thumbnail_data['thumbnail_url'] = story_spec['link_data']['picture']
+                                    thumbnail_data['permalink_url'] = story_spec['link_data']['picture']  # Same for dynamic products
                                     resolution_info = "story_spec_picture"
                                     logger.info(f"✅ STORY: Using object_story_spec picture for ad {ad_id}")
                             
-                            # PRIORITY 4: image_url (may be larger than thumbnail_url)
-                            if not thumbnail_url and 'image_url' in creative:
-                                thumbnail_url = creative['image_url']
+                            # STEP 6: image_url fallback (may be larger than thumbnail_url)
+                            if not thumbnail_data['thumbnail_url'] and 'image_url' in creative:
+                                thumbnail_data['thumbnail_url'] = creative['image_url']
+                                thumbnail_data['permalink_url'] = creative['image_url']
                                 resolution_info = "image_url"
                                 logger.info(f"✅ IMAGE_URL: Using image_url for ad {ad_id}")
                             
-                            # PRIORITY 5: thumbnail_url (64x64 fallback)
-                            if not thumbnail_url and 'thumbnail_url' in creative:
-                                thumbnail_url = creative['thumbnail_url']
-                                resolution_info = "thumbnail_url_64x64"
-                                logger.warning(f"⚠️ FALLBACK: Using 64x64 thumbnail_url for ad {ad_id}")
+                            # STEP 7: thumbnail_url (64x64 fallback) - NO URL PARAMETER MODIFICATION
+                            if not thumbnail_data['thumbnail_url'] and 'thumbnail_url' in creative:
+                                thumbnail_data['thumbnail_url'] = creative['thumbnail_url']
+                                # Use same URL for both - avoid signature mismatch by not modifying URLs
+                                thumbnail_data['permalink_url'] = creative['thumbnail_url']
+                                resolution_info = "thumbnail_url_64x64_safe"
+                                logger.warning(f"⚠️ FALLBACK: Using original 64x64 thumbnail_url for ad {ad_id} (no enhancement possible)")
                             
-                            if thumbnail_url:
-                                thumbnails[ad_id] = thumbnail_url
-                                logger.debug(f"📸 Ad {ad_id} thumbnail ({resolution_info}): {thumbnail_url[:100]}...")
+                            if thumbnail_data['thumbnail_url']:
+                                thumbnails[ad_id] = thumbnail_data
+                                logger.debug(f"📸 Ad {ad_id} thumbnail ({resolution_info}): {thumbnail_data['thumbnail_url'][:100]}...")
                             else:
                                 logger.warning(f"❌ No thumbnail found for ad {ad_id}")
                         else:

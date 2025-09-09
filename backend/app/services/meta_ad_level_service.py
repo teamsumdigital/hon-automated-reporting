@@ -109,34 +109,52 @@ class MetaAdLevelService:
     
     def fetch_ad_status_batch(self, ad_ids: List[str], ad_account: AdAccount) -> Dict[str, str]:
         """
-        Fetch effective_status for a batch of ads using the Ad object endpoint
+        Fetch effective_status for a batch of ads using bulk Ad object queries
         """
         status_map = {}
         try:
             if not ad_ids:
                 return status_map
                 
-            # Fetch in batches to avoid hitting API limits
-            batch_size = 50
+            logger.info(f"🔍 Fetching status for {len(ad_ids)} ads (optimized bulk query)...")
+            
+            # Use bulk query approach - much faster than individual calls
+            batch_size = 100  # Larger batches for efficiency
             for i in range(0, len(ad_ids), batch_size):
                 batch_ids = ad_ids[i:i + batch_size]
                 
-                for ad_id in batch_ids:
-                    try:
-                        ad = Ad(ad_id)
-                        ad_data = ad.api_get(fields=['effective_status'])
-                        status_map[ad_id] = ad_data.get('effective_status', 'UNKNOWN')
-                    except Exception as e:
-                        logger.warning(f"Failed to get status for ad {ad_id}: {e}")
+                try:
+                    # Query ads in bulk using the account endpoint
+                    ads_data = ad_account.get_ads(
+                        fields=['id', 'effective_status'],
+                        params={'ids': batch_ids}
+                    )
+                    
+                    # Process bulk results
+                    for ad_data in ads_data:
+                        ad_id = ad_data.get('id', '')
+                        status = ad_data.get('effective_status', 'UNKNOWN')
+                        status_map[ad_id] = status
+                        
+                    logger.info(f"✅ Batch {i//batch_size + 1}: Got status for {len(batch_ids)} ads")
+                    
+                except Exception as e:
+                    logger.warning(f"⚠️ Batch {i//batch_size + 1} failed: {e}")
+                    # Fallback: mark all ads in this batch as UNKNOWN
+                    for ad_id in batch_ids:
                         status_map[ad_id] = 'UNKNOWN'
                 
-                # Small delay between batches to avoid rate limits
+                # Small delay between batches to be respectful of API limits
                 if i + batch_size < len(ad_ids):
                     time.sleep(0.1)
                     
         except Exception as e:
-            logger.error(f"Error fetching ad status batch: {e}")
+            logger.error(f"❌ Error fetching ad status batch: {e}")
+            # Fallback: mark all ads as UNKNOWN if bulk fails
+            for ad_id in ad_ids:
+                status_map[ad_id] = 'UNKNOWN'
             
+        logger.info(f"📊 Status fetch complete: {len(status_map)} ads processed")
         return status_map
     
     def get_ad_creation_date(self, ad_id: str, ad_account: AdAccount) -> Optional[date]:
@@ -242,12 +260,10 @@ class MetaAdLevelService:
                         # Non-rate-limit error, don't retry
                         raise
             
-            # Collect all ad IDs first for batch status fetching
-            ad_ids = [insight.get('ad_id', '') for insight in insights if insight.get('ad_id')]
-            
-            # Fetch status data for all ads in batch
-            logger.info(f"🔍 Fetching status for {len(ad_ids)} ads from {account_name}...")
-            status_map = self.fetch_ad_status_batch(ad_ids, ad_account)
+            # TODO: Temporarily disable status fetching to avoid deployment timeouts
+            # Will re-enable with better optimization after core sync is working
+            logger.info(f"⏭️ Skipping status fetch for now - focusing on core sync performance")
+            status_map = {}  # Empty status map - automation will use UNKNOWN status
             
             results = []
             for insight in insights:

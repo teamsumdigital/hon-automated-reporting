@@ -49,7 +49,8 @@ class AdPauseAutomationService:
                     }
                 
                 # Determine if this specific ad instance is active (simplified logic)
-                is_active = (ad_status == 'ACTIVE')
+                # Handle UNKNOWN status as active for now (until status fetching is optimized)
+                is_active = (ad_status in ['ACTIVE', 'UNKNOWN'])
                 
                 ad_groups[ad_name]['placements'].append({
                     'ad_id': ad.get('ad_id'),

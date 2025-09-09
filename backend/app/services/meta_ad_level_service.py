@@ -47,6 +47,26 @@ class MetaAdLevelService:
         else:
             logger.info(f"Initialized single Meta Ads account for ad-level data: {self.account_id}")
     
+    def map_meta_status_to_db(self, meta_status: str) -> str:
+        """
+        Map Meta API effective_status to database status values
+        Database constraint allows: 'winner', 'considering', 'paused', 'active'
+        """
+        if not meta_status:
+            return 'active'  # Default to active for empty status
+        
+        meta_status_upper = meta_status.upper()
+        
+        # Map Meta API statuses to database constraint values
+        if meta_status_upper == 'ACTIVE':
+            return 'active'
+        elif meta_status_upper in ['PAUSED', 'INACTIVE']:
+            return 'paused'
+        elif meta_status_upper == 'UNKNOWN':
+            return 'active'  # Treat unknown as active
+        else:
+            return 'active'  # Default fallback
+    
     def categorize_campaign(self, campaign_name: str) -> str:
         """
         Categorize campaign based on name patterns
@@ -334,7 +354,7 @@ class MetaAdLevelService:
                     'impressions': int(insight.get('impressions', '0')),
                     'link_clicks': link_clicks,
                     'week_number': self._get_week_number(insight_start, insight_end),
-                    'effective_status': status_map.get(ad_id, 'UNKNOWN')
+                    'effective_status': self.map_meta_status_to_db(status_map.get(ad_id, 'UNKNOWN'))
                 }
                 
                 results.append(ad_data)

@@ -27,8 +27,8 @@ export const getRowColorClass = (status: AdStatus): string => {
       // Red for paused ads
       return 'bg-red-200 hover:bg-red-300 border-l-4 border-l-red-600';
     case 'active':
-      // Light blue/gray for active ads
-      return 'bg-blue-50 hover:bg-blue-100 border-l-4 border-l-blue-300';
+      // No background color for active ads - keep them neutral
+      return 'hover:bg-gray-50 border-l-4 border-l-transparent';
     default:
       return 'hover:bg-gray-50 border-l-4 border-l-transparent';
   }
@@ -104,8 +104,8 @@ export const AdStatusColorLegend: React.FC = () => {
       
       {/* Active */}
       <div className="flex items-center gap-2">
-        <div className="w-4 h-4 bg-blue-50 border border-blue-100 rounded"></div>
-        <span className="text-blue-700">Active</span>
+        <div className="w-4 h-4 bg-white border border-gray-300 rounded"></div>
+        <span className="text-gray-700">Active</span>
       </div>
       
       {/* Click instruction */}
@@ -129,7 +129,7 @@ export const AdStatusBadge: React.FC<{ status: AdStatus; className?: string }> =
     'winner': 'bg-green-100 text-green-800',
     'considering': 'bg-yellow-100 text-yellow-800',
     'paused': 'bg-red-200 text-red-800',
-    'active': 'bg-blue-50 text-blue-800',
+    'active': 'bg-gray-100 text-gray-800',
   };
   
   if (!status) return null;

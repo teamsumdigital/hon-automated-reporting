@@ -107,6 +107,38 @@ class MetaAdLevelService:
         """
         return f"Week {start_date.strftime('%m/%d')}-{end_date.strftime('%m/%d')}"
     
+    def fetch_ad_status_batch(self, ad_ids: List[str], ad_account: AdAccount) -> Dict[str, str]:
+        """
+        Fetch effective_status for a batch of ads using the Ad object endpoint
+        """
+        status_map = {}
+        try:
+            if not ad_ids:
+                return status_map
+                
+            # Fetch in batches to avoid hitting API limits
+            batch_size = 50
+            for i in range(0, len(ad_ids), batch_size):
+                batch_ids = ad_ids[i:i + batch_size]
+                
+                for ad_id in batch_ids:
+                    try:
+                        ad = Ad(ad_id)
+                        ad_data = ad.api_get(fields=['effective_status'])
+                        status_map[ad_id] = ad_data.get('effective_status', 'UNKNOWN')
+                    except Exception as e:
+                        logger.warning(f"Failed to get status for ad {ad_id}: {e}")
+                        status_map[ad_id] = 'UNKNOWN'
+                
+                # Small delay between batches to avoid rate limits
+                if i + batch_size < len(ad_ids):
+                    time.sleep(0.1)
+                    
+        except Exception as e:
+            logger.error(f"Error fetching ad status batch: {e}")
+            
+        return status_map
+    
     def get_ad_creation_date(self, ad_id: str, ad_account: AdAccount) -> Optional[date]:
         """
         Get the creation date of an ad
@@ -164,9 +196,7 @@ class MetaAdLevelService:
                     'ctr',
                     'objective',
                     'date_start',
-                    'date_stop',
-                    # Status fields for pause detection
-                    'effective_status',           # Ad status (ACTIVE, PAUSED, etc.)
+                    'date_stop'
                 ],
                 'level': 'ad',
                 'time_increment': 7,  # Weekly segments (7 days)
@@ -211,6 +241,13 @@ class MetaAdLevelService:
                     else:
                         # Non-rate-limit error, don't retry
                         raise
+            
+            # Collect all ad IDs first for batch status fetching
+            ad_ids = [insight.get('ad_id', '') for insight in insights if insight.get('ad_id')]
+            
+            # Fetch status data for all ads in batch
+            logger.info(f"🔍 Fetching status for {len(ad_ids)} ads from {account_name}...")
+            status_map = self.fetch_ad_status_batch(ad_ids, ad_account)
             
             results = []
             for insight in insights:
@@ -280,7 +317,8 @@ class MetaAdLevelService:
                     'purchases_conversion_value': purchase_value,
                     'impressions': int(insight.get('impressions', '0')),
                     'link_clicks': link_clicks,
-                    'week_number': self._get_week_number(insight_start, insight_end)
+                    'week_number': self._get_week_number(insight_start, insight_end),
+                    'effective_status': status_map.get(ad_id, 'UNKNOWN')
                 }
                 
                 results.append(ad_data)

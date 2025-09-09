@@ -10,7 +10,7 @@ export type AdStatus =
   | 'winner' 
   | 'considering' 
   | 'paused' 
-  | 'paused_automated'  // New: Dark red for fully paused ads
+  | 'active'  // Active ads (opposite of paused)
   | null;
 
 /**
@@ -24,11 +24,11 @@ export const getRowColorClass = (status: AdStatus): string => {
     case 'considering':
       return 'bg-yellow-100 hover:bg-yellow-200 border-l-4 border-l-yellow-400';
     case 'paused':
-      // Deeper red for manual pause marking
+      // Red for paused ads
       return 'bg-red-200 hover:bg-red-300 border-l-4 border-l-red-600';
-    case 'paused_automated':
-      // Very deep red for automated pause detection (fully paused in all locations)
-      return 'bg-red-300 hover:bg-red-400 border-l-4 border-l-red-800';
+    case 'active':
+      // Light blue/gray for active ads
+      return 'bg-blue-50 hover:bg-blue-100 border-l-4 border-l-blue-300';
     default:
       return 'hover:bg-gray-50 border-l-4 border-l-transparent';
   }
@@ -41,8 +41,8 @@ export const getStatusDisplayName = (status: AdStatus): string => {
   switch (status) {
     case 'winner': return 'Winner';
     case 'considering': return 'Considering';
-    case 'paused': return 'Paused (Manual)';
-    case 'paused_automated': return 'Paused';
+    case 'paused': return 'Paused';
+    case 'active': return 'Active';
     default: return 'No Status';
   }
 };
@@ -62,8 +62,7 @@ export const getNextStatus = (currentStatus: AdStatus): AdStatus => {
       return 'paused';
     case 'paused':
       return null;
-    case 'paused_automated':
-      // Automated status can be manually overridden to winner
+    case 'active':
       return 'winner';
     default:
       return 'winner';
@@ -74,7 +73,7 @@ export const getNextStatus = (currentStatus: AdStatus): AdStatus => {
  * Check if a status is automated (should not be overridden lightly)
  */
 export const isAutomatedStatus = (status: AdStatus): boolean => {
-  return status === 'paused_automated';
+  return status === 'active';
 };
 
 /**
@@ -97,22 +96,21 @@ export const AdStatusColorLegend: React.FC = () => {
         <span className="text-yellow-700">Considering</span>
       </div>
       
-      {/* Manual Pause - Deeper red */}
+      {/* Paused */}
       <div className="flex items-center gap-2">
         <div className="w-4 h-4 bg-red-200 border border-red-300 rounded"></div>
-        <span className="text-red-700">Paused (Manual)</span>
+        <span className="text-red-700">Paused</span>
       </div>
       
-      {/* Automated Pause - Very deep red */}
+      {/* Active */}
       <div className="flex items-center gap-2">
-        <div className="w-4 h-4 bg-red-300 border border-red-400 rounded"></div>
-        <span className="text-red-800 font-medium">Paused (Auto)</span>
-        <span className="text-xs text-gray-500 italic">fully paused</span>
+        <div className="w-4 h-4 bg-blue-50 border border-blue-100 rounded"></div>
+        <span className="text-blue-700">Active</span>
       </div>
       
       {/* Click instruction */}
       <div className="ml-auto text-xs text-gray-500">
-        Click row to cycle status • Auto status shows fully paused ads
+        Click row to cycle status
       </div>
     </div>
   );
@@ -131,7 +129,7 @@ export const AdStatusBadge: React.FC<{ status: AdStatus; className?: string }> =
     'winner': 'bg-green-100 text-green-800',
     'considering': 'bg-yellow-100 text-yellow-800',
     'paused': 'bg-red-200 text-red-800',
-    'paused_automated': 'bg-red-300 text-red-900 border border-red-400',
+    'active': 'bg-blue-50 text-blue-800',
   };
   
   if (!status) return null;
@@ -139,9 +137,6 @@ export const AdStatusBadge: React.FC<{ status: AdStatus; className?: string }> =
   return (
     <span className={`${baseClasses} ${statusClasses[status]} ${className}`}>
       {getStatusDisplayName(status)}
-      {status === 'paused_automated' && (
-        <span className="ml-1 text-red-700">🤖</span>
-      )}
     </span>
   );
 };
@@ -156,17 +151,16 @@ export const StatusOverrideWarning: React.FC<{
   onConfirm: () => void;
   onCancel: () => void;
 }> = ({ adName, currentStatus, onConfirm, onCancel }) => {
-  if (currentStatus !== 'paused_automated') return null;
+  if (currentStatus !== 'active') return null;
   
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 max-w-md mx-4">
         <h3 className="text-lg font-semibold text-gray-900 mb-2">
-          Override Automated Status?
+          Override Active Status?
         </h3>
         <p className="text-gray-600 mb-4">
-          This ad is automatically marked as paused because it's completely paused 
-          in all campaigns/adsets. Are you sure you want to manually override this status?
+          This ad is automatically marked as active. Are you sure you want to manually override this status?
         </p>
         <p className="text-sm text-gray-500 mb-6">
           Ad: <span className="font-medium">{adName}</span>

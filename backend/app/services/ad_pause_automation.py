@@ -37,22 +37,7 @@ class AdPauseAutomationService:
             
             for ad in ad_data_list:
                 ad_name = ad.get('ad_name', '')
-                ad_status = ad.get('effective_status', '').upper()  # Ad status
-                # Handle nested campaign/adset status fields from Meta API
-                campaign_status = ''
-                adset_status = ''
-                
-                # Extract campaign status from nested structure
-                if 'campaign' in ad and isinstance(ad['campaign'], dict):
-                    campaign_status = ad['campaign'].get('effective_status', '').upper()
-                
-                # Extract adset status and details from nested structure  
-                adset_name = ''
-                adset_id = ''
-                if 'adset' in ad and isinstance(ad['adset'], dict):
-                    adset_status = ad['adset'].get('effective_status', '').upper()
-                    adset_name = ad['adset'].get('name', '')
-                    adset_id = ad['adset'].get('id', '')
+                ad_status = ad.get('effective_status', '').upper()  # Ad-level status only
                 
                 if ad_name not in ad_groups:
                     ad_groups[ad_name] = {
@@ -63,22 +48,17 @@ class AdPauseAutomationService:
                         'spend': 0
                     }
                 
-                # Determine if this specific placement is active
-                is_active = all([
-                    ad_status == 'ACTIVE',
-                    campaign_status == 'ACTIVE', 
-                    adset_status == 'ACTIVE'
-                ])
+                # Determine if this specific ad instance is active (simplified logic)
+                is_active = (ad_status == 'ACTIVE')
                 
                 ad_groups[ad_name]['placements'].append({
                     'ad_id': ad.get('ad_id'),
                     'campaign_name': ad.get('campaign_name', ''),
-                    'adset_name': adset_name,
-                    'adset_id': adset_id,
+                    'campaign_id': ad.get('campaign_id', ''),
                     'ad_status': ad_status,
-                    'campaign_status': campaign_status,
-                    'adset_status': adset_status,
-                    'is_active': is_active
+                    'is_active': is_active,
+                    'date_start': ad.get('date_start', ''),
+                    'date_stop': ad.get('date_stop', '')
                 })
                 
                 if is_active:
@@ -112,17 +92,18 @@ class AdPauseAutomationService:
             status = 'unknown'
             action = 'none'
         elif active_count == 0:
-            # Completely paused in ALL locations - apply dark red
-            status = 'paused_automated'
-            action = 'apply_dark_red'
+            # Completely paused in ALL locations - set as paused
+            status = 'paused'
+            action = 'apply_paused_status'
         elif paused_count == 0:
             # Completely active in ALL locations
             status = 'active'
-            action = 'clear_automated_status'
+            action = 'apply_active_status'
         else:
             # Mixed status - paused in some locations, active in others
-            status = 'mixed'
-            action = 'preserve_manual_status'
+            # For now, treat mixed as active (we'll enhance this in Phase 2)
+            status = 'active'
+            action = 'apply_active_status'
         
         return {
             'ad_name': ad_name,
@@ -147,19 +128,20 @@ class AdPauseAutomationService:
                 action = analysis['action']
                 
                 try:
-                    if action == 'apply_dark_red':
-                        # Apply automated pause status (dark red)
-                        await self._update_ad_status(ad_name, 'paused_automated', analysis)
+                    if action == 'apply_paused_status':
+                        # Set status to paused
+                        await self._update_ad_status(ad_name, 'paused', analysis)
                         updates_applied += 1
-                        logger.info(f"Applied automated pause status to: {ad_name}")
+                        logger.info(f"Applied paused status to: {ad_name}")
                         
-                    elif action == 'clear_automated_status':
-                        # Clear automated status if ad is now active
-                        await self._clear_automated_status_if_set(ad_name)
-                        updates_cleared += 1
+                    elif action == 'apply_active_status':
+                        # Set status to active (or clear to null)
+                        await self._update_ad_status(ad_name, 'active', analysis)
+                        updates_applied += 1
+                        logger.info(f"Applied active status to: {ad_name}")
                         
-                    elif action == 'preserve_manual_status':
-                        # Don't change anything for mixed status ads
+                    elif action == 'none':
+                        # Unknown status - don't change anything
                         preserved_manual += 1
                         
                 except Exception as e:
@@ -191,12 +173,17 @@ class AdPauseAutomationService:
             
             # Only apply automated status if:
             # 1. Current status is null (no manual setting)
-            # 2. Current status is already 'paused_automated' (updating existing automation)
-            if current_status is None or current_status == 'paused_automated':
+            # 2. Current status is already automated (updating existing automation)
+            if current_status is None or current_status in ['paused', 'active']:
+                if new_status == 'paused':
+                    reason = f"Paused in all {analysis['total_placements']} ad instances"
+                else:
+                    reason = f"Active in {analysis['active_placements']} of {analysis['total_placements']} ad instances"
+                
                 update_data = {
                     'status': new_status,
                     'status_updated_at': datetime.now().isoformat(),
-                    'status_automation_reason': f"Completely paused in all {analysis['total_placements']} placements"
+                    'status_automation_reason': reason
                 }
                 
                 response = self.supabase.table("meta_ad_data").update(update_data).eq("ad_name", ad_name).execute()
@@ -220,15 +207,15 @@ class AdPauseAutomationService:
             
             if current_response.data:
                 current_status = current_response.data[0].get('status')
-                if current_status == 'paused_automated':
+                if current_status in ['paused', 'active']:
                     update_data = {
                         'status': None,  # Clear automated status
                         'status_updated_at': datetime.now().isoformat(),
-                        'status_automation_reason': 'Ad became active - cleared automated pause status'
+                        'status_automation_reason': 'Ad status changed - cleared automated status'
                     }
                     
                     response = self.supabase.table("meta_ad_data").update(update_data).eq("ad_name", ad_name).execute()
-                    logger.info(f"Cleared automated pause status for active ad: {ad_name}")
+                    logger.info(f"Cleared automated status for ad: {ad_name}")
                     
         except Exception as e:
             logger.error(f"Error clearing automated status for {ad_name}: {e}")
@@ -248,7 +235,7 @@ class AdPauseAutomationService:
             for ad_name, analysis in pause_analysis.items():
                 status = analysis['status']
                 
-                if status == 'paused_automated':
+                if status == 'paused':
                     summary['completely_paused'] += 1
                     summary['automated_updates_needed'] += 1
                 elif status == 'active':

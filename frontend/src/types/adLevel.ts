@@ -22,6 +22,10 @@ export interface AdData {
   campaign_optimization: string;
   days_live: number;
   thumbnail_url?: string;
+  permalink_url?: string;          // Enhanced: High-res CDN URL for hover
+  creative_type?: string;          // Enhanced: 'static_image', 'video', 'dynamic_product'
+  original_width?: number;         // Enhanced: Original image dimensions
+  original_height?: number;        // Enhanced: Original image dimensions
   status?: string | null; // 'winner', 'considering', 'paused', 'paused_last_week', or null
   weekly_periods: WeeklyPeriod[];
   total_spend: number;

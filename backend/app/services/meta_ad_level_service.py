@@ -11,6 +11,7 @@ from facebook_business.exceptions import FacebookRequestError
 from loguru import logger
 from decimal import Decimal
 import re
+import time
 from .ad_name_parser import AdNameParser
 from .categorization import CategorizationService
 
@@ -166,11 +167,6 @@ class MetaAdLevelService:
                     'date_stop',
                     # Status fields for pause detection
                     'effective_status',           # Ad status (ACTIVE, PAUSED, etc.)
-                    'campaign.effective_status',  # Campaign status
-                    'adset.effective_status',     # AdSet status
-                    'campaign.name',              # Campaign name for context
-                    'adset.name',                 # AdSet name for grouping
-                    'adset.id',                   # AdSet ID for multi-instance detection
                 ],
                 'level': 'ad',
                 'time_increment': 7,  # Weekly segments (7 days)

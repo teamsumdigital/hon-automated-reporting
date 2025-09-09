@@ -251,9 +251,48 @@ async def sync_14_day_ad_data_background(metadata: Optional[Dict[str, Any]]):
         logger.info(f"🛒 Total purchases: {total_purchases}")
         logger.info(f"💵 Total revenue: ${total_revenue:,.2f}")
         
+        # Apply automated pause detection after successful sync
+        logger.info("🤖 Running automated pause detection...")
+        try:
+            from ..services.ad_pause_automation import AdPauseAutomationService
+            automation_service = AdPauseAutomationService()
+            
+            # Analyze the ad data for pause status
+            pause_analysis = automation_service.analyze_ad_pause_status(filtered_ad_data)
+            
+            # Get summary for logging
+            summary_stats = {
+                'total_ads_analyzed': len(pause_analysis),
+                'completely_paused': sum(1 for data in pause_analysis.values() if data['status'] == 'paused'),
+                'completely_active': sum(1 for data in pause_analysis.values() if data['status'] == 'active'),
+                'unknown_status': sum(1 for data in pause_analysis.values() if data['status'] == 'unknown')
+            }
+            
+            logger.info(f"📊 Pause analysis: {summary_stats['total_ads_analyzed']} ads analyzed")
+            logger.info(f"   🔴 Completely paused: {summary_stats['completely_paused']} ads")
+            logger.info(f"   🟢 Completely active: {summary_stats['completely_active']} ads") 
+            logger.info(f"   ❓ Unknown status: {summary_stats['unknown_status']} ads")
+            
+            # Apply automated status updates
+            import asyncio
+            results = await automation_service.apply_automated_status_updates(pause_analysis)
+            
+            logger.info(f"✅ Automation complete: {results['updates_applied']} automated pause statuses applied")
+            if results['updates_cleared'] > 0:
+                logger.info(f"   🔄 {results['updates_cleared']} automated statuses cleared (ads became active)")
+            if results['preserved_manual'] > 0:
+                logger.info(f"   🤲 {results['preserved_manual']} manual statuses preserved")
+            if results.get('errors'):
+                logger.error(f"   ⚠️ {len(results['errors'])} automation errors occurred")
+                
+        except Exception as auto_error:
+            logger.error(f"⚠️ Automated pause detection failed: {auto_error}")
+            logger.error(f"⚠️ Full automation error: {str(auto_error)}", exc_info=True)
+            # Don't fail the entire sync if automation fails
+        
         # Update completion status
         _sync_status["in_progress"] = False
-        _sync_status["last_message"] = f"Completed successfully - {total_inserted} records inserted"
+        _sync_status["last_message"] = f"Completed successfully - {total_inserted} records inserted with pause detection"
         
     except Exception as e:
         logger.error(f"❌ Error in 14-day ad sync: {e}")

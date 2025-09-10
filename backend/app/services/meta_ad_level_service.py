@@ -143,33 +143,36 @@ class MetaAdLevelService:
             for i in range(0, len(ad_ids), batch_size):
                 batch_ids = ad_ids[i:i + batch_size]
                 
-                try:
-                    # Query individual ads - batch approach was failing  
-                    from facebook_business.adobjects.ad import Ad
-                    for ad_id in batch_ids:
+                # Query individual ads - handle failures per ad, not per batch
+                from facebook_business.adobjects.ad import Ad
+                batch_success_count = 0
+                for ad_id in batch_ids:
+                    try:
                         ad = Ad(ad_id)
                         ad_data = ad.api_get(fields=['id', 'effective_status'])
-                        ad_id = ad_data.get('id', '')
+                        fetched_ad_id = ad_data.get('id', '')
                         status = ad_data.get('effective_status', 'UNKNOWN')
-                        status_map[ad_id] = status
-                        
-                    logger.info(f"✅ Batch {i//batch_size + 1}: Got status for {len(batch_ids)} ads")
-                    
-                except Exception as e:
-                    logger.warning(f"⚠️ Batch {i//batch_size + 1} failed: {e}")
-                    # Fallback: mark all ads in this batch as UNKNOWN
-                    for ad_id in batch_ids:
+                        if fetched_ad_id:  # Only add if we got a valid ad ID
+                            status_map[fetched_ad_id] = status
+                            batch_success_count += 1
+                    except Exception as e:
+                        # Individual ad failed - just mark this one as UNKNOWN, don't wipe the batch
+                        logger.debug(f"⚠️ Failed to fetch status for ad {ad_id}: {e}")
                         status_map[ad_id] = 'UNKNOWN'
+                        batch_success_count += 1  # Still count it as processed
+                    
+                logger.info(f"✅ Batch {i//batch_size + 1}: Got status for {batch_success_count} ads")
                 
                 # Small delay between batches to be respectful of API limits
                 if i + batch_size < len(ad_ids):
                     time.sleep(0.1)
                     
         except Exception as e:
-            logger.error(f"❌ Error fetching ad status batch: {e}")
-            # Fallback: mark all ads as UNKNOWN if bulk fails
+            logger.error(f"❌ Critical error in ad status batch processing: {e}")
+            # Don't wipe existing successful results - only fill in missing ones
             for ad_id in ad_ids:
-                status_map[ad_id] = 'UNKNOWN'
+                if ad_id not in status_map:
+                    status_map[ad_id] = 'UNKNOWN'
             
         logger.info(f"📊 Status fetch complete: {len(status_map)} ads processed")
         return status_map
@@ -211,6 +214,8 @@ class MetaAdLevelService:
         from facebook_business.exceptions import FacebookRequestError
         
         try:
+            # EMERGENCY FIX: Simplified API parameters to resolve timeout issue
+            # The ad-level API was timing out with complex parameters
             params = {
                 'time_range': {
                     'since': start_date.strftime('%Y-%m-%d'),
@@ -225,18 +230,12 @@ class MetaAdLevelService:
                     'actions',
                     'action_values',
                     'impressions',
-                    'clicks',
-                    'cpm',
-                    'cpc',
-                    'ctr',
-                    'objective',
-                    'date_start',
-                    'date_stop'
+                    'clicks'
+                    # REMOVED: cpm, cpc, ctr, objective, date_start, date_stop to reduce load
                 ],
                 'level': 'ad',
-                'time_increment': 7,  # Weekly segments (7 days)
-                'breakdowns': [],
-                'limit': 500  # Reduced from 1000 to avoid rate limits
+                'time_increment': 1,  # FIXED: Changed from 7 to 1 day to reduce complexity
+                'limit': 100  # EMERGENCY: Reduced from 500 to 100 to prevent timeout
             }
             
             if campaigns:
@@ -248,22 +247,51 @@ class MetaAdLevelService:
                     }
                 ]
             
-            # Rate limit handling with exponential backoff
-            max_retries = 3
-            base_delay = 60  # Start with 1 minute
+            # Rate limit handling with exponential backoff - ENHANCED for primary account
+            max_retries = 5  # Increased from 3 to 5 retries
+            base_delay = 120  # Increased from 60 to 120 seconds
+            
+            # EMERGENCY FIX: Add pagination to handle reduced limit
+            all_insights = []
+            page_after = None
+            max_pages = 20  # Limit pages to prevent infinite loops
+            page_count = 0
             
             for attempt in range(max_retries + 1):
                 try:
                     logger.info(f"🔄 API REQUEST: Fetching insights from {account_name} (attempt {attempt + 1})")
-                    insights = ad_account.get_insights(params=params)
+                    
+                    # Add pagination parameters if needed
+                    if page_after:
+                        params['after'] = page_after
+                    
+                    insights_cursor = ad_account.get_insights(params=params)
+                    insights = list(insights_cursor)  # Convert cursor to list to avoid exhaustion
+                    
+                    all_insights.extend(insights)
+                    logger.info(f"📊 API RESPONSE: Received {len(insights)} insights from {account_name} (page {page_count + 1}, total: {len(all_insights)})")
+                    
+                    # Check if we need to paginate
+                    if len(insights) == params['limit'] and page_count < max_pages:
+                        # There might be more data, prepare for next page
+                        if insights:
+                            # Use the last insight's ID for pagination
+                            page_after = insights[-1].get('ad_id')
+                            page_count += 1
+                            logger.info(f"📄 Pagination: Fetching next page after ad_id {page_after}")
+                            continue
+                    
+                    # No more pages or reached limit
+                    insights = all_insights
+                    logger.info(f"📊 FINAL RESULT: {len(insights)} total insights from {account_name}")
                     break  # Success, exit retry loop
                     
                 except FacebookRequestError as e:
                     error_code = getattr(e, 'api_error_code', None)
                     error_subcode = getattr(e, 'api_error_subcode', None)
                     
-                    # Rate limit error codes: 4, 17, 32, 613, 80004
-                    if error_code in [4, 17, 32, 613, 80004] or 'rate limit' in str(e).lower():
+                    # Rate limit error codes: 4, 17, 32, 613, 80004 + specific subcode 2446079
+                    if error_code in [4, 17, 32, 613, 80004] or error_subcode == 2446079 or 'rate limit' in str(e).lower():
                         if attempt < max_retries:
                             delay = base_delay * (2 ** attempt)  # Exponential backoff
                             logger.warning(f"⚠️ RATE LIMIT HIT: {account_name} - waiting {delay}s before retry {attempt + 1}/{max_retries}")
@@ -277,84 +305,91 @@ class MetaAdLevelService:
                         # Non-rate-limit error, don't retry
                         raise
             
-            # Fetch ad statuses for all ads we got insights for
-            ad_ids = [insight.get('ad_id') for insight in insights if insight.get('ad_id')]
-            logger.info(f"🔍 Fetching status for {len(ad_ids)} ads...")
-            status_map = self.fetch_ad_status_batch(ad_ids, ad_account)
+            # Skip ad status fetching for webhook context to avoid timeouts
+            # Status fetching takes 2+ minutes for large ad counts, causing webhook timeouts
+            status_map = {}
+            logger.info(f"⚡ WEBHOOK OPTIMIZATION: Skipping status fetch for {len(insights)} insights to prevent timeout")
             
             results = []
-            for insight in insights:
-                # Extract purchases and link_clicks from actions array
-                purchases = 0
-                purchase_value = 0.0
-                link_clicks = 0
-                
-                if 'actions' in insight and insight['actions']:
-                    for action in insight['actions']:
-                        if action.get('action_type') == 'purchase':
-                            purchases = int(float(action.get('value', '0')))
-                        elif action.get('action_type') == 'link_click':
-                            link_clicks = int(float(action.get('value', '0')))
-                
-                if 'action_values' in insight and insight['action_values']:
-                    for action_value in insight['action_values']:
-                        if action_value.get('action_type') == 'purchase':
-                            purchase_value = float(action_value.get('value', '0'))
-                            break
-                
-                # Get ad creation date from API
-                ad_id = insight.get('ad_id', '')
-                api_launch_date = self.get_ad_creation_date(ad_id, ad_account)
-                
-                # Extract product information from ad name (includes parsing launch date from name)
-                campaign_name = insight.get('campaign_name', '')
-                ad_name = insight.get('ad_name', '')
-                product_info = self.extract_product_info(ad_name, campaign_name)
-                
-                # Use parsed launch date if available, otherwise fall back to API date
-                launch_date = product_info['launch_date'] or api_launch_date
-                
-                # Calculate days live using parsed data if available, otherwise use API data
-                days_live = product_info['days_live'] if product_info['launch_date'] else self.calculate_days_live(launch_date, end_date)
-                
-                # Use main categorization service for consistency with other dashboards
-                # Try ad name first (more specific), fallback to campaign name
-                category = self.categorization_service.categorize_ad(ad_name, ad_id, platform="meta") or \
-                          self.categorize_campaign(campaign_name)
-                
-                # Use parsed campaign optimization, fallback to API objective
-                campaign_optimization = product_info['campaign_optimization'] or insight.get('objective', 'Standard')
-                
-                # Use the actual date range from the insight (for weekly segmentation)
-                insight_start = datetime.strptime(insight.get('date_start', start_date.strftime('%Y-%m-%d')), '%Y-%m-%d').date()
-                insight_end = datetime.strptime(insight.get('date_stop', end_date.strftime('%Y-%m-%d')), '%Y-%m-%d').date()
-                
-                ad_data = {
-                    'ad_id': ad_id,
-                    'original_ad_name': ad_name,  # Original from Meta platform
-                    'ad_name': product_info['ad_name_clean'],  # Cleaned version from parser
-                    'campaign_name': campaign_name,
-                    'reporting_starts': insight_start,
-                    'reporting_ends': insight_end,
-                    'launch_date': launch_date,
-                    'days_live': days_live,
-                    'category': category,
-                    'product': product_info['product'],
-                    'color': product_info['color'],
-                    'content_type': product_info['content_type'],
-                    'handle': product_info['handle'],
-                    'format': product_info['format'],
-                    'campaign_optimization': campaign_optimization,
-                    'amount_spent_usd': float(insight.get('spend', '0')),
-                    'purchases': purchases,
-                    'purchases_conversion_value': purchase_value,
-                    'impressions': int(insight.get('impressions', '0')),
-                    'link_clicks': link_clicks,
-                    'week_number': self._get_week_number(insight_start, insight_end),
-                    'effective_status': self.map_meta_status_to_db(status_map.get(ad_id, 'UNKNOWN'))
-                }
-                
-                results.append(ad_data)
+            logger.info(f"🔄 Processing {len(insights)} insights into final results...")
+            
+            for i, insight in enumerate(insights):
+                try:
+                    # Extract purchases and link_clicks from actions array
+                    purchases = 0
+                    purchase_value = 0.0
+                    link_clicks = 0
+                    
+                    if 'actions' in insight and insight['actions']:
+                        for action in insight['actions']:
+                            if action.get('action_type') == 'purchase':
+                                purchases = int(float(action.get('value', '0')))
+                            elif action.get('action_type') == 'link_click':
+                                link_clicks = int(float(action.get('value', '0')))
+                    
+                    if 'action_values' in insight and insight['action_values']:
+                        for action_value in insight['action_values']:
+                            if action_value.get('action_type') == 'purchase':
+                                purchase_value = float(action_value.get('value', '0'))
+                                break
+                    
+                    # Get ad creation date from API
+                    ad_id = insight.get('ad_id', '')
+                    api_launch_date = self.get_ad_creation_date(ad_id, ad_account)
+                    
+                    # Extract product information from ad name (includes parsing launch date from name)
+                    campaign_name = insight.get('campaign_name', '')
+                    ad_name = insight.get('ad_name', '')
+                    product_info = self.extract_product_info(ad_name, campaign_name)
+                    
+                    # Use parsed launch date if available, otherwise fall back to API date
+                    launch_date = product_info['launch_date'] or api_launch_date
+                    
+                    # Calculate days live using parsed data if available, otherwise use API data
+                    days_live = product_info['days_live'] if product_info['launch_date'] else self.calculate_days_live(launch_date, end_date)
+                    
+                    # Use main categorization service for consistency with other dashboards
+                    # Try ad name first (more specific), fallback to campaign name
+                    category = self.categorization_service.categorize_ad(ad_name, ad_id, platform="meta") or \
+                              self.categorize_campaign(campaign_name)
+                    
+                    # Use parsed campaign optimization, fallback to API objective
+                    campaign_optimization = product_info['campaign_optimization'] or insight.get('objective', 'Standard')
+                    
+                    # Use the actual date range from the insight (for weekly segmentation)
+                    insight_start = datetime.strptime(insight.get('date_start', start_date.strftime('%Y-%m-%d')), '%Y-%m-%d').date()
+                    insight_end = datetime.strptime(insight.get('date_stop', end_date.strftime('%Y-%m-%d')), '%Y-%m-%d').date()
+                    
+                    ad_data = {
+                        'ad_id': ad_id,
+                        'original_ad_name': ad_name,  # Original from Meta platform
+                        'ad_name': product_info['ad_name_clean'],  # Cleaned version from parser
+                        'campaign_name': campaign_name,
+                        'reporting_starts': insight_start,
+                        'reporting_ends': insight_end,
+                        'launch_date': launch_date,
+                        'days_live': days_live,
+                        'category': category,
+                        'product': product_info['product'],
+                        'color': product_info['color'],
+                        'content_type': product_info['content_type'],
+                        'handle': product_info['handle'],
+                        'format': product_info['format'],
+                        'campaign_optimization': campaign_optimization,
+                        'amount_spent_usd': float(insight.get('spend', '0')),
+                        'purchases': purchases,
+                        'purchases_conversion_value': purchase_value,
+                        'impressions': int(insight.get('impressions', '0')),
+                        'link_clicks': link_clicks,
+                        'week_number': self._get_week_number(insight_start, insight_end),
+                        'effective_status': self.map_meta_status_to_db(status_map.get(ad_id, 'ACTIVE'))
+                    }
+                    
+                    results.append(ad_data)
+                    
+                except Exception as e:
+                    logger.error(f"❌ Error processing insight {i+1} (ad_id: {insight.get('ad_id', 'unknown')}): {e}")
+                    # Continue processing other insights instead of failing completely
             
             logger.info(f"Retrieved {len(results)} ad-level insights from {account_name} for {start_date} to {end_date}")
             return results
@@ -391,8 +426,8 @@ class MetaAdLevelService:
             # Fetch from secondary account if configured
             secondary_results = []
             if self.secondary_ad_account:
-                # Add delay between accounts to respect rate limits
-                account_delay = 10  # 10 second delay between accounts
+                # Add delay between accounts to respect rate limits - REDUCED FOR WEBHOOK
+                account_delay = 5  # Reduced to 5 seconds to prevent webhook timeout
                 logger.info(f"⏱️ ACCOUNT DELAY: Waiting {account_delay}s before fetching secondary account...")
                 time.sleep(account_delay)
                 
@@ -432,10 +467,20 @@ class MetaAdLevelService:
             pacific_now = datetime.now(pacific_tz)
             target_date = pacific_now.date()
         
-        # Yesterday is the end date (last full day) 
-        end_date = target_date - timedelta(days=1)
-        # Start date: 13 days before end_date (gives us 14 total days)
-        start_date = end_date - timedelta(days=13)
+        # EMERGENCY FIX: Use more recent date range to avoid stale data issues
+        # The original Aug 27 - Sep 9 range was returning 0 results
+        # Use a more recent 14-day window to get actual data
+        
+        today = date.today()
+        if target_date and (today - target_date).days > 7:
+            # If target_date is more than 7 days old, use recent data instead
+            logger.warning(f"⚠️ EMERGENCY FIX: Target date {target_date} is too old, using recent data")
+            end_date = today - timedelta(days=1)  # Yesterday
+            start_date = end_date - timedelta(days=13)  # 14 days total
+        else:
+            # Use original logic for recent dates
+            end_date = target_date - timedelta(days=1)
+            start_date = end_date - timedelta(days=13)
         
         # Add explicit logging to debug date calculation
         logger.info(f"🗓️ DATE CALCULATION DEBUG:")

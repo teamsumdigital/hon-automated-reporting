@@ -118,7 +118,7 @@ class AdPauseAutomationService:
         }
     
     async def apply_automated_status_updates(self, pause_analysis: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
-        """Apply automated status updates to database"""
+        """Apply automated status updates to database - but respect existing Meta API status"""
         try:
             updates_applied = 0
             updates_cleared = 0
@@ -129,6 +129,20 @@ class AdPauseAutomationService:
                 action = analysis['action']
                 
                 try:
+                    # First check if we already have Meta API status for this ad
+                    current_response = self.supabase.table("meta_ad_data").select("status").eq("ad_name", ad_name).limit(1).execute()
+                    
+                    existing_status = None
+                    if current_response.data:
+                        existing_status = current_response.data[0].get('status')
+                    
+                    # If we already have a Meta API status (not null), preserve it
+                    if existing_status and existing_status in ['active', 'paused']:
+                        preserved_manual += 1
+                        logger.info(f"Preserved Meta API status '{existing_status}' for: {ad_name}")
+                        continue
+                    
+                    # Only apply automation if no Meta API status exists
                     if action == 'apply_paused_status':
                         # Set status to paused
                         await self._update_ad_status(ad_name, 'paused', analysis)

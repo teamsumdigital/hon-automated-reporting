@@ -221,7 +221,8 @@ async def sync_14_day_ad_data_background(metadata: Optional[Dict[str, Any]]):
                 'purchases_conversion_value': ad['purchases_conversion_value'],
                 'impressions': ad['impressions'],
                 'link_clicks': ad['link_clicks'],
-                'thumbnail_url': ad.get('thumbnail_url')
+                'thumbnail_url': ad.get('thumbnail_url'),
+                'status': ad.get('effective_status', 'active')  # Include actual Meta API status
             }
             insert_data.append(insert_record)
         

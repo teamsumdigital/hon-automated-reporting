@@ -144,14 +144,11 @@ class MetaAdLevelService:
                 batch_ids = ad_ids[i:i + batch_size]
                 
                 try:
-                    # Query ads in bulk using the account endpoint
-                    ads_data = ad_account.get_ads(
-                        fields=['id', 'effective_status'],
-                        params={'ids': batch_ids}
-                    )
-                    
-                    # Process bulk results
-                    for ad_data in ads_data:
+                    # Query individual ads - batch approach was failing  
+                    from facebook_business.adobjects.ad import Ad
+                    for ad_id in batch_ids:
+                        ad = Ad(ad_id)
+                        ad_data = ad.api_get(fields=['id', 'effective_status'])
                         ad_id = ad_data.get('id', '')
                         status = ad_data.get('effective_status', 'UNKNOWN')
                         status_map[ad_id] = status

@@ -280,10 +280,10 @@ class MetaAdLevelService:
                         # Non-rate-limit error, don't retry
                         raise
             
-            # TODO: Temporarily disable status fetching to avoid deployment timeouts
-            # Will re-enable with better optimization after core sync is working
-            logger.info(f"⏭️ Skipping status fetch for now - focusing on core sync performance")
-            status_map = {}  # Empty status map - automation will use UNKNOWN status
+            # Fetch ad statuses for all ads we got insights for
+            ad_ids = [insight.get('ad_id') for insight in insights if insight.get('ad_id')]
+            logger.info(f"🔍 Fetching status for {len(ad_ids)} ads...")
+            status_map = self.fetch_ad_status_batch(ad_ids, ad_account)
             
             results = []
             for insight in insights:

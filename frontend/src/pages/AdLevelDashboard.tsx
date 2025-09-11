@@ -185,14 +185,6 @@ const AdLevelDashboard: React.FC = () => {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [isScrolled, setIsScrolled] = useState(false);
   
-  // Status override warning state
-  const [showOverrideWarning, setShowOverrideWarning] = useState(false);
-  const [overrideAdName, setOverrideAdName] = useState<string>('');
-  const [overrideCurrentStatus, setOverrideCurrentStatus] = useState<AdStatus>(null);
-  const [pendingStatusChange, setPendingStatusChange] = useState<{
-    adName: string;
-    nextStatus: AdStatus;
-  } | null>(null);
 
   // Filter states
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -366,42 +358,6 @@ const AdLevelDashboard: React.FC = () => {
     }
   };
 
-  // Enhanced status management with automation support
-  const handleStatusOverrideConfirm = async () => {
-    if (!pendingStatusChange) return;
-    
-    try {
-      const result = await apiClient.updateAdStatus(
-        pendingStatusChange.adName, 
-        pendingStatusChange.nextStatus
-      );
-      
-      // Update local state
-      setAdData(prevData => 
-        prevData.map(ad => 
-          ad.ad_name === pendingStatusChange.adName 
-            ? { ...ad, status: pendingStatusChange.nextStatus as any }
-            : ad
-        )
-      );
-      
-      // Clear states
-      setShowOverrideWarning(false);
-      setPendingStatusChange(null);
-      setOverrideAdName('');
-      setOverrideCurrentStatus(null);
-      
-    } catch (error) {
-      console.error('❌ Failed to override ad status:', error);
-    }
-  };
-
-  const handleStatusOverrideCancel = () => {
-    setShowOverrideWarning(false);
-    setPendingStatusChange(null);
-    setOverrideAdName('');
-    setOverrideCurrentStatus(null);
-  };
 
   const handleRowClick = async (adName: string, currentStatus: string | null | undefined) => {
     console.log('🔄 Row clicked:', adName, 'Current status:', currentStatus);
@@ -409,17 +365,7 @@ const AdLevelDashboard: React.FC = () => {
     const nextStatus = getNextStatus(currentAdStatus);
     console.log('🎯 Next status:', nextStatus);
     
-    // Check if trying to override automated status - show warning
-    if (isAutomatedStatus(currentAdStatus)) {
-      console.log('⚠️ Attempting to override automated status');
-      setOverrideAdName(adName);
-      setOverrideCurrentStatus(currentAdStatus);
-      setPendingStatusChange({ adName, nextStatus });
-      setShowOverrideWarning(true);
-      return;
-    }
-    
-    // Normal status update for non-automated statuses
+    // Direct status update - no confirmation needed
     try {
       console.log('📡 Calling updateAdStatus API...');
       const result = await apiClient.updateAdStatus(adName, nextStatus);
@@ -609,7 +555,7 @@ const AdLevelDashboard: React.FC = () => {
                     <span className="text-xs text-gray-700">Considering</span>
                   </div>
                   <div className="flex items-center space-x-1">
-                    <div className="w-2 h-2 bg-red-800 rounded"></div>
+                    <div className="w-2 h-2 bg-gray-400 rounded"></div>
                     <span className="text-xs text-gray-700">Paused</span>
                   </div>
                 </div>
@@ -913,15 +859,6 @@ const AdLevelDashboard: React.FC = () => {
         )}
       </div>
 
-      {/* Status Override Warning Modal */}
-      {showOverrideWarning && (
-        <StatusOverrideWarning
-          adName={overrideAdName}
-          currentStatus={overrideCurrentStatus}
-          onConfirm={handleStatusOverrideConfirm}
-          onCancel={handleStatusOverrideCancel}
-        />
-      )}
     </div>
   );
 };

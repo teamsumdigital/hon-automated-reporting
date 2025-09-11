@@ -12,7 +12,9 @@ router = APIRouter(prefix="/api/webhook", tags=["webhook"])
 _sync_status = {
     "in_progress": False,
     "started_at": None,
-    "last_message": None
+    "last_message": None,
+    "status_sync_last_run": None,
+    "status_corrections_last_run": 0
 }
 
 class N8NWebhookPayload(BaseModel):
@@ -296,38 +298,64 @@ async def sync_14_day_ad_data_background(metadata: Optional[Dict[str, Any]]):
         except Exception as e:
             logger.error(f"❌ Automated pause detection failed: {e}")
         
-        # EMERGENCY DISABLE: Status consistency check temporarily disabled to prevent webhook timeout
-        logger.info("⚡ STATUS CONSISTENCY CHECK DISABLED: Skipping status API calls to prevent webhook timeout")
-        logger.info("⚡ This prevents the crash with 996+ ads during webhook sync")
-        logger.info("⚡ Status data will use default 'active' status during emergency period")
+        # Run comprehensive Meta API status sync (replaces emergency disable)
+        logger.info("🔄 Running comprehensive Meta API status sync...")
+        status_sync_summary = {"completed": False}
         
-        # Optionally set all records to 'active' status if needed for consistency
         try:
-            # Count records that need status update
-            needs_status_query = supabase.table('meta_ad_data').select('id', count='exact').is_('status', None).execute()
-            if needs_status_query.count and needs_status_query.count > 0:
-                logger.info(f"🔧 Setting {needs_status_query.count} records with NULL status to 'active'")
-                supabase.table('meta_ad_data').update({
-                    'status': 'active',
-                    'status_updated_at': datetime.now().isoformat(),
-                    'status_automation_reason': 'emergency_default_active'
-                }).is_('status', None).execute()
-                logger.info("✅ Default status update complete")
+            from ..services.ad_status_sync_service import AdStatusSyncService
+            
+            # Initialize status sync service
+            status_sync_service = AdStatusSyncService()
+            
+            # Run status sync with conservative batch size for webhook context
+            status_results = status_sync_service.sync_ad_status(
+                batch_size=15,  # Conservative for webhook timeout prevention
+                max_ads=None    # Sync all unique ads
+            )
+            
+            if status_results and status_results.get('success'):
+                corrections = status_results['database_updates']['updated']
+                total_processed = status_results['total_ads_processed']
+                duration = status_results['total_duration_seconds']
+                
+                logger.info(f"✅ Meta API status sync complete:")
+                logger.info(f"   Total ads processed: {total_processed}")
+                logger.info(f"   Status corrections: {corrections} ads fixed")
+                logger.info(f"   Already correct: {total_processed - corrections} ads")
+                logger.info(f"   Duration: {duration:.1f}s")
+                
+                status_sync_summary = {
+                    "completed": True,
+                    "ads_processed": total_processed,
+                    "corrections_applied": corrections,
+                    "duration_seconds": duration
+                }
             else:
-                logger.info("✅ All records already have status values")
+                error_msg = status_results.get('error', 'Unknown') if status_results else 'No results'
+                logger.warning(f"⚠️ Status sync completed with issues: {error_msg}")
+                status_sync_summary = {"completed": False, "error": error_msg}
+                    
         except Exception as e:
-            logger.warning(f"⚠️ Default status update failed: {e}")
-            # Don't fail the entire sync if default status update fails
-            pass
+            logger.error(f"❌ Meta API status sync failed: {e}")
+            # Don't fail entire sync if status sync fails - webhook must complete
+            status_sync_summary = {"completed": False, "error": str(e)}
                 
         except Exception as auto_error:
             logger.error(f"⚠️ Automated pause detection failed: {auto_error}")
             logger.error(f"⚠️ Full automation error: {str(auto_error)}", exc_info=True)
             # Don't fail the entire sync if automation fails
         
-        # Update completion status
+        # Update completion status with status sync info
         _sync_status["in_progress"] = False
-        _sync_status["last_message"] = f"Completed successfully - {total_inserted} records inserted with pause detection"
+        status_sync_msg = ""
+        if status_sync_summary.get('completed'):
+            corrections = status_sync_summary.get('corrections_applied', 0)
+            status_sync_msg = f" + {corrections} status corrections"
+            _sync_status["status_sync_last_run"] = datetime.now().isoformat()
+            _sync_status["status_corrections_last_run"] = corrections
+        
+        _sync_status["last_message"] = f"Completed successfully - {total_inserted} records inserted with pause detection{status_sync_msg}"
         
     except Exception as e:
         logger.error(f"❌ Error in 14-day ad sync: {e}")
@@ -376,5 +404,7 @@ async def get_sync_status():
         "sync_in_progress": _sync_status["in_progress"],
         "started_at": _sync_status["started_at"],
         "last_message": _sync_status["last_message"],
+        "status_sync_last_run": _sync_status["status_sync_last_run"],
+        "status_corrections_last_run": _sync_status["status_corrections_last_run"],
         "timestamp": date.today().isoformat()
     }

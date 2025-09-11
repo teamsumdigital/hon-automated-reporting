@@ -15,6 +15,7 @@ from app.api.tiktok_reports import router as tiktok_reports_router
 from app.api.meta_ad_reports import router as meta_ad_reports_router
 from app.api.tiktok_ad_reports import router as tiktok_ad_reports_router
 from app.api.webhook import router as webhook_router
+from app.api.ad_status_sync import router as ad_status_sync_router
 
 # Configure logging with crash detection
 logger.add("logs/hon_reporting.log", rotation="1 day", retention="30 days", level="INFO")
@@ -82,6 +83,7 @@ app.include_router(tiktok_reports_router)
 app.include_router(meta_ad_reports_router, prefix="/api/meta-ad-reports", tags=["Meta Ad Level Reports"])
 app.include_router(tiktok_ad_reports_router, prefix="/api/tiktok-ad-reports", tags=["TikTok Ad Level Reports"])
 app.include_router(webhook_router)
+app.include_router(ad_status_sync_router)
 
 @app.get("/list-tables")
 async def list_tables():

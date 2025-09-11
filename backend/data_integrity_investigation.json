@@ -1,0 +1,18 @@
+{
+  "campaign_data": {
+    "min_date": "2024-01-01",
+    "max_date": "2025-08-26",
+    "total_records": 563,
+    "days_covered": 604,
+    "weeks_covered": 86.3
+  },
+  "meta_ad_data": {
+    "min_date": "2025-08-13",
+    "max_date": "2025-08-26",
+    "total_records": 1000,
+    "unique_ads": 609,
+    "days_covered": 14,
+    "weeks_covered": 2.0,
+    "july_aug_2025_records": 1000
+  }
+}

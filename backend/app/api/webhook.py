@@ -189,13 +189,20 @@ async def sync_14_day_ad_data_background(metadata: Optional[Dict[str, Any]]):
             logger.warning("⚠️ No ads remaining after filtering")
             return
         
-        # Clear existing data
-        logger.info("🧹 Clearing existing ad data...")
+        # Clear existing data for the sync date range only
+        from datetime import date, timedelta
+        end_date = date.today() - timedelta(days=1)  
+        start_date = end_date - timedelta(days=13)
+        
+        logger.info(f"🧹 Clearing existing ad data for date range {start_date} to {end_date}...")
         try:
-            supabase.table('meta_ad_data').delete().gt('id', 0).execute()
-            logger.info("✅ Cleared existing data")
+            result = supabase.table('meta_ad_data').delete()\
+                .gte('reporting_starts', start_date.isoformat())\
+                .lte('reporting_ends', end_date.isoformat())\
+                .execute()
+            logger.info(f"✅ Cleared {len(result.data) if result.data else 0} existing records for sync period")
         except Exception as e:
-            logger.info("ℹ️ Database already empty or clear operation not needed")
+            logger.info(f"ℹ️ Clear operation result: {e}")
         
         # Prepare and insert data
         insert_data = []

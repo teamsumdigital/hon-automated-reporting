@@ -1,0 +1,9 @@
+{
+  "analysis_date": "2025-08-27T20:42:35.845351",
+  "status": "error",
+  "data_sources": [
+    "campaign_data",
+    "meta_ad_data"
+  ],
+  "error": "\"Column(s) ['ctr'] do not exist\""
+}

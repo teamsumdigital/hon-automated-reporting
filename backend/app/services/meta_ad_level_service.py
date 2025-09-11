@@ -242,7 +242,7 @@ class MetaAdLevelService:
                     # REMOVED: cpm, cpc, ctr, objective, date_start, date_stop to reduce load
                 ],
                 'level': 'ad',
-                'time_increment': 1,  # FIXED: Changed from 7 to 1 day to reduce complexity
+                'time_increment': 7,  # Weekly segmentation for week-over-week analysis
                 'limit': 100  # EMERGENCY: Reduced from 500 to 100 to prevent timeout
             }
             

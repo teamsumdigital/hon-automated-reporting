@@ -285,6 +285,30 @@ async def sync_14_day_ad_data_background(metadata: Optional[Dict[str, Any]]):
                 logger.info(f"   🤲 {results['preserved_manual']} manual statuses preserved")
             if results.get('errors'):
                 logger.error(f"   ⚠️ {len(results['errors'])} automation errors occurred")
+        
+        # EMERGENCY DISABLE: Status consistency check temporarily disabled to prevent webhook timeout
+        logger.info("⚡ STATUS CONSISTENCY CHECK DISABLED: Skipping status API calls to prevent webhook timeout")
+        logger.info("⚡ This prevents the crash with 996+ ads during webhook sync")
+        logger.info("⚡ Status data will use default 'active' status during emergency period")
+        
+        # Optionally set all records to 'active' status if needed for consistency
+        try:
+            # Count records that need status update
+            needs_status_query = supabase.table('meta_ad_data').select('id', count='exact').is_('status', None).execute()
+            if needs_status_query.count and needs_status_query.count > 0:
+                logger.info(f"🔧 Setting {needs_status_query.count} records with NULL status to 'active'")
+                supabase.table('meta_ad_data').update({
+                    'status': 'active',
+                    'status_updated_at': datetime.now().isoformat(),
+                    'status_automation_reason': 'emergency_default_active'
+                }).is_('status', None).execute()
+                logger.info("✅ Default status update complete")
+            else:
+                logger.info("✅ All records already have status values")
+        except Exception as e:
+            logger.warning(f"⚠️ Default status update failed: {e}")
+            # Don't fail the entire sync if default status update fails
+            pass
                 
         except Exception as auto_error:
             logger.error(f"⚠️ Automated pause detection failed: {auto_error}")

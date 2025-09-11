@@ -135,6 +135,14 @@ class MetaAdLevelService:
         try:
             if not ad_ids:
                 return status_map
+            
+            # EMERGENCY SAFETY CHECK: Prevent large status fetches that cause webhook timeouts
+            if len(ad_ids) > 100:
+                logger.warning(f"⚡ EMERGENCY SAFETY: Large status fetch blocked ({len(ad_ids)} ads)")
+                logger.warning("⚡ This prevents webhook timeout crashes during sync")
+                logger.warning("⚡ Returning default 'ACTIVE' status for all ads")
+                # Return default 'ACTIVE' status for all ads to prevent crash
+                return {ad_id: 'ACTIVE' for ad_id in ad_ids}
                 
             logger.info(f"🔍 Fetching status for {len(ad_ids)} ads (optimized bulk query)...")
             

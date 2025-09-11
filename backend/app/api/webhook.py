@@ -285,6 +285,9 @@ async def sync_14_day_ad_data_background(metadata: Optional[Dict[str, Any]]):
                 logger.info(f"   🤲 {results['preserved_manual']} manual statuses preserved")
             if results.get('errors'):
                 logger.error(f"   ⚠️ {len(results['errors'])} automation errors occurred")
+                
+        except Exception as e:
+            logger.error(f"❌ Automated pause detection failed: {e}")
         
         # EMERGENCY DISABLE: Status consistency check temporarily disabled to prevent webhook timeout
         logger.info("⚡ STATUS CONSISTENCY CHECK DISABLED: Skipping status API calls to prevent webhook timeout")
